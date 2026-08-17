@@ -1,5 +1,11 @@
 # QR Stock — Plan del producto
 
+## Estado: en producción ✅
+Desplegado en Vercel: **https://tu-stock-tau.vercel.app**
+Repo: **https://github.com/Lorenzo6900/TuStock**
+Cuenta Vercel: team `lorenzo-s-team`, proyecto `tu-stock`.
+Login con Google y con email/contraseña, probados de punta a punta en producción.
+
 ## Idea central
 Web para que tiendas/negocios/restaurantes suban stock sacando una foto en el momento.
 La IA identifica el objeto y le pone un nombre, y se guarda en el catálogo del negocio.
@@ -58,14 +64,27 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - `lib/slug.ts` — genera el slug a partir del nombre del negocio.
 - `db/schema.sql` — esquema completo (usuarios, cuentas OAuth, sesiones, productos).
 
-## Para vos: cómo dejarlo corriendo
+## Para vos: cómo correrlo en local
 1. API key gratis de Google AI Studio en https://aistudio.google.com/apikey.
 2. Proyecto gratis en https://neon.tech, correr `db/schema.sql`, copiar el connection string.
-3. Credenciales OAuth en Google Cloud Console (Client ID/Secret) con `http://localhost:3000/api/auth/callback/google` como redirect URI autorizado.
+3. Credenciales OAuth en Google Cloud Console (Client ID/Secret) con `http://localhost:3000/api/auth/callback/google` como redirect URI autorizado (en producción hace falta agregar TAMBIÉN `https://tu-stock-tau.vercel.app/api/auth/callback/google`, ya está agregado).
 4. Copiar `.env.local.example` a `.env.local` y completar `GEMINI_API_KEY`, `DATABASE_URL`, `AUTH_SECRET` (generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`), `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`.
 5. `npm run dev` y abrir `http://localhost:3000`.
 
+**Nota de entorno:** en PowerShell, `npm`/`npx` fallan por política de ejecución de scripts — usar `npm.cmd`/`npx.cmd` en su lugar (o correr en `cmd` en vez de PowerShell).
+
 **Pendiente de tu lado:** en Google Cloud Console, la pantalla de consentimiento OAuth muestra el nombre "n8n2" (project reusado) — conviene renombrarlo a algo como "QR Stock" en el "OAuth consent screen" para que no confunda a tus usuarios al loguearse.
+
+## Cómo desplegar cambios nuevos
+1. Local: `git add`, `git commit`.
+2. `git push origin main` **desde la terminal de VS Code** (no desde Claude Code — ahí falla por falta de credenciales de git configuradas).
+3. Vercel redespliega solo al detectar el push (Deployments > se ve el nuevo build).
+4. Si cambiás variables de entorno en Vercel, hace falta un **Redeploy** manual o un push nuevo para que se apliquen — y al crearlas, verificar que el campo "Value" realmente tenga contenido pegado (ver incidente en "Notas" abajo).
+
+## Notas / incidentes ya resueltos (para no repetir el diagnóstico)
+- **Build fallaba en Vercel** por `useSearchParams()` sin `<Suspense>` en `/login` — Next.js lo exige para prerenderizar, pero no falla en `next dev` local, solo en `next build`.
+- **Login roto en producción con "server configuration error"**: las variables de entorno se habían guardado en Vercel con el campo *Value* vacío (probablemente un paste que no se aplicó). El diagnóstico definitivo fue crear una ruta temporal que hacía `Object.keys(process.env)` — mostró que las claves SÍ existían pero con string vacío. Lección: si `vercel env ls` dice que existen pero la app no las ve, no asumir que el nombre está mal — puede ser el valor vacío.
+- **`OAuthAccountNotLinked`**: pasa si ya existe un `user` en la DB con ese email (creado con contraseña) y después intentás loguearte con Google usando el mismo email — Auth.js no linkea automático por seguridad. Se resuelve borrando la cuenta vieja (si no tiene datos) o logueándose con la contraseña original.
 
 ## Pendiente (próxima etapa)
 - **Quitar el fondo de la imagen.** Ningún proveedor grande (Google, OpenRouter) lo da gratis. Opciones: (a) pagar centavos por imagen vía Gemini/OpenRouter, o (b) un modelo open-source (RMBG) alojado gratis en Hugging Face.
