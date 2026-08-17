@@ -127,7 +127,7 @@ export default function AddProduct() {
                 <>
                   <div className="h-9 w-9 border-2 border-line border-t-accent rounded-full animate-spin" />
                   <p className="text-sm text-ink-soft">
-                    Identificando el producto...
+                    Identificando el producto y preparando la foto...
                   </p>
                 </>
               ) : (
