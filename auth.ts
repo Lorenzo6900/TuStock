@@ -8,6 +8,7 @@ import { pool, getUserByEmail } from "@/lib/db";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PostgresAdapter(pool),
   session: { strategy: "jwt" },
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
