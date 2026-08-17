@@ -25,5 +25,6 @@ export async function GET() {
     VERCEL: process.env.VERCEL ?? null,
     VERCEL_ENV: process.env.VERCEL_ENV ?? null,
     NODE_ENV: process.env.NODE_ENV ?? null,
+    allEnvKeys: Object.keys(process.env).sort(),
   });
 }
