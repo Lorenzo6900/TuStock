@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-const NAME_MODEL = "gemini-2.5-flash";
+const NAME_MODEL = "gemini-3.6-flash";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 const NAME_URL = `https://generativelanguage.googleapis.com/v1beta/models/${NAME_MODEL}:generateContent`;
 const IMAGE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`;
