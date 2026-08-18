@@ -52,7 +52,7 @@ export default function BusinessTypePicker({
           required
           value={businessType}
           onChange={(e) => handleTypeChange(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition bg-white"
+          className="select-field mt-1 w-full rounded-lg border border-line px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition cursor-pointer"
         >
           <option value="" disabled>
             Elegí una opción
@@ -66,16 +66,16 @@ export default function BusinessTypePicker({
       </div>
 
       {businessType && (
-        <div>
+        <div className="rounded-xl bg-paper-soft/60 border border-line p-3.5">
           <label className="text-sm font-medium text-ink">
             Categorías del catálogo
           </label>
-          <p className="text-xs text-ink-soft/70 mt-0.5 mb-2">
+          <p className="text-xs text-ink-soft/80 mt-0.5 mb-3 leading-relaxed">
             Elegí las que quieras usar para dividir tu catálogo. Podés agregar otras.
           </p>
 
-          {suggested.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
+          {(suggested.length > 0 || customCategories.length > 0) && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
               {suggested.map((category) => {
                 const selected = categories.includes(category);
                 return (
@@ -83,30 +83,39 @@ export default function BusinessTypePicker({
                     key={category}
                     type="button"
                     onClick={() => toggleCategory(category)}
-                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    aria-pressed={selected}
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${
                       selected
-                        ? "bg-ink text-paper border-ink"
-                        : "border-line text-ink hover:bg-paper-soft"
+                        ? "bg-accent-soft border-accent/40 text-accent"
+                        : "bg-white border-line text-ink-soft hover:border-ink/20 hover:text-ink"
                     }`}
                   >
+                    {selected && (
+                      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                        <path
+                          d="M3.5 8.5l2.7 2.7 6.3-6.4"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
                     {category}
                   </button>
                 );
               })}
-            </div>
-          )}
-
-          {customCategories.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
               {customCategories.map((category) => (
                 <button
                   key={category}
                   type="button"
                   onClick={() => toggleCategory(category)}
-                  className="rounded-full border border-ink bg-ink text-paper px-3 py-1.5 text-sm flex items-center gap-1.5"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm font-medium text-accent"
                 >
                   {category}
-                  <span aria-hidden="true">×</span>
+                  <span aria-hidden="true" className="text-accent/70">
+                    ×
+                  </span>
                 </button>
               ))}
             </div>
@@ -123,15 +132,15 @@ export default function BusinessTypePicker({
                   addCustomCategory();
                 }
               }}
-              placeholder="Otro (escribí y agregá)"
-              className="flex-1 rounded-lg border border-line px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
+              placeholder="Otra categoría..."
+              className="flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-soft/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
             />
             <button
               type="button"
               onClick={addCustomCategory}
-              className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-paper-soft transition-colors"
+              className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-ink hover:bg-paper-soft transition-colors"
             >
-              Agregar
+              + Agregar
             </button>
           </div>
         </div>

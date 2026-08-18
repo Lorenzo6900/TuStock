@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { getUserById, listProducts } from "@/lib/db";
-import { formatPrice } from "@/lib/format";
 import QrButton from "@/components/QrButton";
 import Logo from "@/components/Logo";
+import ProductCard from "@/components/ProductCard";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ export default async function Dashboard() {
   if (!user?.slug) redirect("/onboarding");
 
   const products = await listProducts(user.id);
+  const categories = user.categories ?? [];
 
   return (
     <main className="min-h-screen bg-paper">
@@ -61,42 +62,13 @@ export default async function Dashboard() {
             <div className="text-4xl mb-3">🗂️</div>
             <p className="text-ink font-medium">Todavía no hay productos</p>
             <p className="text-sm text-ink-soft mt-1">
-              Tocá "Agregar producto" para sacar la primera foto.
+              Tocá &ldquo;Agregar producto&rdquo; para sacar la primera foto.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {products.map((product) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-2xl border border-line overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
-              >
-                <div className="aspect-square bg-white flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/products/${product.id}/image`}
-                    alt={product.name}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="p-3 border-t border-line">
-                  <p className="text-sm font-medium text-ink truncate">
-                    {product.name}
-                  </p>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    {product.category && (
-                      <span className="text-xs text-ink-soft truncate">
-                        {product.category}
-                      </span>
-                    )}
-                    {product.price !== null && (
-                      <span className="text-xs font-medium text-accent ml-auto">
-                        {formatPrice(product.price)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <ProductCard key={product.id} product={product} categories={categories} />
             ))}
           </div>
         )}

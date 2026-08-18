@@ -48,6 +48,31 @@ export async function insertProduct(
   return rows[0];
 }
 
+export async function updateProduct(
+  id: string,
+  userId: string,
+  name: string,
+  price: number | null,
+  category: string | null
+): Promise<Product | null> {
+  const { rows } = await pool.query(
+    `update products
+     set name = $3, price = $4, category = $5
+     where id = $1 and user_id = $2
+     returning id, name, price, category, mime_type, created_at`,
+    [id, userId, name, price, category]
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteProduct(id: string, userId: string): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    "delete from products where id = $1 and user_id = $2",
+    [id, userId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 export async function getProductImage(
   id: string
 ): Promise<{ image: Buffer; mimeType: string } | null> {

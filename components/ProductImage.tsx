@@ -18,7 +18,7 @@ export default function ProductImage({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Ampliar ${name}`}
-        className="aspect-square w-full rounded-2xl bg-white shadow-sm shadow-black/[0.03] border border-line flex items-center justify-center overflow-hidden cursor-zoom-in active:scale-95 transition-transform"
+        className="aspect-square w-full rounded-2xl bg-white shadow-sm shadow-black/[0.03] border border-line flex items-center justify-center overflow-hidden cursor-zoom-in transition-all hover:shadow-md hover:border-ink/15 active:scale-95"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
