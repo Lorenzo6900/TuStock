@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Step = "idle" | "processing" | "review" | "saving";
 
@@ -26,8 +26,20 @@ export default function AddProduct() {
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [resultMimeType, setResultMimeType] = useState("image/png");
+
+  useEffect(() => {
+    fetch("/api/business")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.categories) setCategories(json.categories);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -70,7 +82,13 @@ export default function AddProduct() {
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, image: resultImage, mimeType: resultMimeType }),
+        body: JSON.stringify({
+          name,
+          image: resultImage,
+          mimeType: resultMimeType,
+          price: price.trim() === "" ? null : price,
+          category: category.trim() === "" ? null : category,
+        }),
       });
       const json = await res.json();
 
@@ -89,6 +107,8 @@ export default function AddProduct() {
   function handleRetake() {
     setResultImage(null);
     setName("");
+    setPrice("");
+    setCategory("");
     setStep("idle");
   }
 
@@ -167,6 +187,43 @@ export default function AddProduct() {
                 disabled={step === "saving"}
               />
             </div>
+
+            <div>
+              <label className="text-sm font-medium text-ink">
+                Precio (opcional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Ej: 2500"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
+                disabled={step === "saving"}
+              />
+            </div>
+
+            {categories.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-ink">
+                  Categoría (opcional)
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition bg-white"
+                  disabled={step === "saving"}
+                >
+                  <option value="">Sin categoría</option>
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button

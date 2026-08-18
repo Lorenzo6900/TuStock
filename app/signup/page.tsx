@@ -5,10 +5,13 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import GoogleIcon from "@/components/GoogleIcon";
 import Logo from "@/components/Logo";
+import BusinessTypePicker from "@/components/BusinessTypePicker";
 
 export default function Signup() {
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +25,14 @@ export default function Signup() {
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, businessName, email, password }),
+      body: JSON.stringify({
+        name,
+        businessName,
+        businessType,
+        categories,
+        email,
+        password,
+      }),
     });
     const json = await res.json();
 
@@ -101,6 +111,14 @@ export default function Signup() {
                 className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
               />
             </div>
+
+            <BusinessTypePicker
+              businessType={businessType}
+              categories={categories}
+              onBusinessTypeChange={setBusinessType}
+              onCategoriesChange={setCategories}
+            />
+
             <div>
               <label className="text-sm font-medium text-ink">Email</label>
               <input
@@ -127,7 +145,7 @@ export default function Signup() {
             </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !businessType}
               className="mt-1 w-full rounded-full bg-ink text-paper py-2.5 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               {loading ? "Creando cuenta..." : "Crear cuenta"}

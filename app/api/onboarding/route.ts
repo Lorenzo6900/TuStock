@@ -9,9 +9,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
 
-  const { businessName } = await req.json();
-  if (!businessName) {
-    return NextResponse.json({ error: "Falta el nombre del negocio." }, { status: 400 });
+  const { businessName, businessType, categories } = await req.json();
+  if (!businessName || !businessType) {
+    return NextResponse.json(
+      { error: "Falta el nombre o el tipo de negocio." },
+      { status: 400 }
+    );
   }
 
   const baseSlug = slugify(businessName) || "negocio";
@@ -22,6 +25,12 @@ export async function POST(req: NextRequest) {
     slug = `${baseSlug}-${suffix}`;
   }
 
-  const user = await setUserBusinessInfo(session.user.id, businessName, slug);
+  const user = await setUserBusinessInfo(
+    session.user.id,
+    businessName,
+    slug,
+    businessType,
+    Array.isArray(categories) ? categories : []
+  );
   return NextResponse.json({ slug: user.slug });
 }

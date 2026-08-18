@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import BusinessTypePicker from "@/components/BusinessTypePicker";
 
 export default function OnboardingForm() {
   const [businessName, setBusinessName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,7 +18,7 @@ export default function OnboardingForm() {
     const res = await fetch("/api/onboarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessName }),
+      body: JSON.stringify({ businessName, businessType, categories }),
     });
 
     if (!res.ok) {
@@ -50,9 +53,17 @@ export default function OnboardingForm() {
           Va a definir la URL de tu catálogo público.
         </p>
       </div>
+
+      <BusinessTypePicker
+        businessType={businessType}
+        categories={categories}
+        onBusinessTypeChange={setBusinessType}
+        onCategoriesChange={setCategories}
+      />
+
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !businessType}
         className="mt-1 w-full rounded-full bg-ink text-paper py-2.5 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
       >
         {loading ? "Guardando..." : "Continuar"}

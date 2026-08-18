@@ -5,9 +5,10 @@ import { slugify } from "@/lib/slug";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, businessName } = await req.json();
+    const { name, email, password, businessName, businessType, categories } =
+      await req.json();
 
-    if (!name || !email || !password || !businessName) {
+    if (!name || !email || !password || !businessName || !businessType) {
       return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
     }
     if (password.length < 8) {
@@ -39,7 +40,9 @@ export async function POST(req: NextRequest) {
       email,
       passwordHash,
       businessName,
-      slug
+      slug,
+      businessType,
+      Array.isArray(categories) ? categories : []
     );
 
     return NextResponse.json({ user: { id: user.id, email: user.email, slug: user.slug } });

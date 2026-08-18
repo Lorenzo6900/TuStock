@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { getUserById, listProducts } from "@/lib/db";
+import { formatPrice } from "@/lib/format";
 import QrButton from "@/components/QrButton";
 import Logo from "@/components/Logo";
 
@@ -82,6 +83,18 @@ export default async function Dashboard() {
                   <p className="text-sm font-medium text-ink truncate">
                     {product.name}
                   </p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    {product.category && (
+                      <span className="text-xs text-ink-soft truncate">
+                        {product.category}
+                      </span>
+                    )}
+                    {product.price !== null && (
+                      <span className="text-xs font-medium text-accent ml-auto">
+                        {formatPrice(product.price)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

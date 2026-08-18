@@ -57,3 +57,11 @@ create table if not exists products (
   created_at timestamptz not null default now()
 );
 create index if not exists products_user_id_idx on products (user_id);
+
+-- === Migración incremental (ejecutar SOLO estos ALTER en Neon, no el archivo entero) ===
+-- El bloque de arriba borra la tabla products si existe; estos ALTER son
+-- aditivos y no tocan datos existentes.
+alter table products add column if not exists price numeric(10, 2);
+alter table products add column if not exists category text;
+alter table users add column if not exists business_type text;
+alter table users add column if not exists categories text[];

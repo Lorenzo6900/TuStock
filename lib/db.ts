@@ -5,6 +5,8 @@ export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export type Product = {
   id: string;
   name: string;
+  price: number | null;
+  category: string | null;
   mime_type: string;
   created_at: string;
 };
@@ -16,12 +18,14 @@ export type User = {
   image: string | null;
   password: string | null;
   business_name: string | null;
+  business_type: string | null;
+  categories: string[] | null;
   slug: string | null;
 };
 
 export async function listProducts(userId: string): Promise<Product[]> {
   const { rows } = await pool.query(
-    "select id, name, mime_type, created_at from products where user_id = $1 order by created_at desc",
+    "select id, name, price, category, mime_type, created_at from products where user_id = $1 order by created_at desc",
     [userId]
   );
   return rows;
@@ -31,13 +35,15 @@ export async function insertProduct(
   userId: string,
   name: string,
   image: Buffer,
-  mimeType: string
+  mimeType: string,
+  price: number | null,
+  category: string | null
 ): Promise<Product> {
   const { rows } = await pool.query(
-    `insert into products (user_id, name, image, mime_type)
-     values ($1, $2, $3, $4)
-     returning id, name, mime_type, created_at`,
-    [userId, name, image, mimeType]
+    `insert into products (user_id, name, image, mime_type, price, category)
+     values ($1, $2, $3, $4, $5, $6)
+     returning id, name, price, category, mime_type, created_at`,
+    [userId, name, image, mimeType, price, category]
   );
   return rows[0];
 }
@@ -84,13 +90,15 @@ export async function createUserWithPassword(
   email: string,
   passwordHash: string,
   businessName: string,
-  slug: string
+  slug: string,
+  businessType: string | null,
+  categories: string[]
 ): Promise<User> {
   const { rows } = await pool.query(
-    `insert into users (name, email, password, business_name, slug)
-     values ($1, $2, $3, $4, $5)
+    `insert into users (name, email, password, business_name, slug, business_type, categories)
+     values ($1, $2, $3, $4, $5, $6, $7)
      returning *`,
-    [name, email, passwordHash, businessName, slug]
+    [name, email, passwordHash, businessName, slug, businessType, categories]
   );
   return rows[0];
 }
@@ -98,11 +106,16 @@ export async function createUserWithPassword(
 export async function setUserBusinessInfo(
   userId: string,
   businessName: string,
-  slug: string
+  slug: string,
+  businessType: string | null,
+  categories: string[]
 ): Promise<User> {
   const { rows } = await pool.query(
-    `update users set business_name = $2, slug = $3 where id = $1 returning *`,
-    [userId, businessName, slug]
+    `update users
+     set business_name = $2, slug = $3, business_type = $4, categories = $5
+     where id = $1
+     returning *`,
+    [userId, businessName, slug, businessType, categories]
   );
   return rows[0];
 }
