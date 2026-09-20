@@ -67,22 +67,27 @@ export default async function Menu({
   const sections = hasCategories
     ? groupByCategory(products, user.categories ?? [])
     : [{ category: null, products }];
+  const heroColor = colorFor(user.business_name || slug);
 
   return (
     <main className="min-h-screen bg-[#fff8f0] relative overflow-x-hidden">
-      {/* Blobs de fondo */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[420px] overflow-hidden">
-        <div className="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-fuchsia-300/40 blur-3xl" />
-        <div className="absolute -top-10 right-0 h-80 w-80 rounded-full bg-amber-300/40 blur-3xl" />
-        <div className="absolute top-32 left-1/3 h-64 w-64 rounded-full bg-sky-300/40 blur-3xl" />
-      </div>
-
       <div className="relative mx-auto max-w-3xl px-4 py-12 sm:py-16">
-        <header className="text-center mb-10">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-fuchsia-600 shadow-sm ring-1 ring-black/5">
+        <header className="relative text-center mb-10">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-0 -z-10 h-56 w-56 sm:h-72 sm:w-72 -translate-x-1/2 -translate-y-1/4 rounded-full blur-3xl opacity-25"
+            style={{ backgroundColor: heroColor.grad }}
+          />
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm ring-1 ring-black/5"
+            style={{ color: heroColor.text }}
+          >
             ✨ Catálogo
           </span>
-          <h1 className="mt-5 font-serif text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-fuchsia-600 via-orange-500 to-sky-600 bg-clip-text text-transparent drop-shadow-sm">
+          <h1
+            className="mt-5 pb-1 font-serif text-4xl sm:text-5xl font-bold tracking-tight leading-[1.25] bg-clip-text text-transparent"
+            style={{ backgroundImage: `linear-gradient(90deg, ${heroColor.text}, ${heroColor.grad})` }}
+          >
             {user.business_name || "Nuestro menú"}
           </h1>
           <p className="mt-3 text-sm text-ink-soft">
