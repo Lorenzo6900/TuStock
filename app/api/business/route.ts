@@ -1,25 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getUserById, isSlugTaken, updateBusinessProfile } from "@/lib/db";
+import { isSlugTaken, updateBusinessProfile } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { revalidateMenu } from "@/lib/menuCache";
-
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
-
-  const user = await getUserById(session.user.id);
-  if (!user) {
-    return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
-  }
-
-  return NextResponse.json({
-    businessType: user.business_type,
-    categories: user.categories ?? [],
-  });
-}
 
 export async function PATCH(req: NextRequest) {
   const session = await auth();

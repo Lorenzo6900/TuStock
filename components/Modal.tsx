@@ -26,7 +26,7 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl bg-white border border-line shadow-xl shadow-black/10 p-5"
+        className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-white border border-line shadow-xl shadow-black/10 p-5"
       >
         {children}
       </div>

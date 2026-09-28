@@ -65,6 +65,7 @@ alter table products add column if not exists price numeric(10, 2);
 alter table products add column if not exists category text;
 alter table users add column if not exists business_type text;
 alter table users add column if not exists categories text[];
+alter table products add column if not exists description text;
 
 -- Recuperar contraseña: se guarda solo el hash del token, nunca el token en sí.
 create table if not exists password_reset_tokens (

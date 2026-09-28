@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import { getUserById, listProducts } from "@/lib/db";
 import QrButton from "@/components/QrButton";
-import Logo from "@/components/Logo";
+import AppHeader from "@/components/AppHeader";
+import BulkPriceButton from "@/components/BulkPriceButton";
 import ProductCard from "@/components/ProductCard";
 
 export const dynamic = "force-dynamic";
@@ -20,47 +21,32 @@ export default async function Dashboard() {
 
   return (
     <main className="min-h-screen bg-paper">
-      <header className="border-b border-line bg-white/60">
-        <div className="mx-auto max-w-4xl px-4 sm:px-8 py-4 flex items-center justify-between">
-          <Logo href="/dashboard" />
-          <div className="flex items-center gap-5">
-            <Link
-              href="/settings"
-              className="text-sm text-ink-soft hover:text-ink transition-colors"
-            >
-              Ajustes
-            </Link>
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/login" });
-              }}
-            >
-              <button className="text-sm text-ink-soft hover:text-ink transition-colors">
-                Cerrar sesión
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <AppHeader slug={user.slug} />
 
       <div className="mx-auto max-w-4xl p-4 sm:p-8">
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-          <div>
-            <p className="text-xs font-medium text-accent uppercase tracking-wide mb-1">
+        <div className="flex flex-col gap-5 mb-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-accent uppercase tracking-[0.12em] mb-1.5">
               Tu catálogo
             </p>
-            <h1 className="font-serif text-3xl font-semibold text-ink tracking-tight">
+            <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-ink tracking-tight leading-tight">
               {user.business_name}
             </h1>
+            <p className="mt-1 text-sm text-ink-soft tabular-nums">
+              {products.length} {products.length === 1 ? "producto" : "productos"}
+            </p>
           </div>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:shrink-0 lg:justify-end">
+            <BulkPriceButton products={products} />
             <QrButton slug={user.slug} />
             <Link
               href="/add"
-              className="rounded-full bg-ink text-paper px-5 py-2.5 text-sm font-medium hover:bg-accent transition-colors shadow-sm"
+              className="col-span-2 order-first sm:order-none inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-ink px-5 text-sm font-medium text-paper shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
             >
-              + Agregar producto
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+                <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              Agregar producto
             </Link>
           </div>
         </div>

@@ -170,13 +170,20 @@ export default async function Menu({
                             <p className="mt-3 text-sm font-semibold text-ink leading-snug">
                               {product.name}
                             </p>
+                            {product.description && (
+                              <p className="mt-1 text-xs text-ink-soft leading-relaxed line-clamp-3">
+                                {product.description}
+                              </p>
+                            )}
                             {product.price !== null && (
-                              <span
-                                className="mt-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold"
-                                style={{ backgroundColor: pc.soft, color: pc.text }}
-                              >
-                                {formatPrice(product.price)}
-                              </span>
+                              <div className="mt-auto pt-2">
+                                <span
+                                  className="inline-block rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums"
+                                  style={{ backgroundColor: pc.soft, color: pc.text }}
+                                >
+                                  {formatPrice(product.price)}
+                                </span>
+                              </div>
                             )}
                           </div>
                         );

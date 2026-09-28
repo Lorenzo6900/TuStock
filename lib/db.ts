@@ -7,6 +7,7 @@ export type Product = {
   name: string;
   price: number | null;
   category: string | null;
+  description: string | null;
   mime_type: string;
   created_at: string;
 };
@@ -25,7 +26,7 @@ export type User = {
 
 export async function listProducts(userId: string): Promise<Product[]> {
   const { rows } = await pool.query(
-    "select id, name, price, category, mime_type, created_at from products where user_id = $1 order by created_at desc",
+    "select id, name, price, category, description, mime_type, created_at from products where user_id = $1 order by created_at desc",
     [userId]
   );
   return rows;
@@ -37,13 +38,14 @@ export async function insertProduct(
   image: Buffer,
   mimeType: string,
   price: number | null,
-  category: string | null
+  category: string | null,
+  description: string | null
 ): Promise<Product> {
   const { rows } = await pool.query(
-    `insert into products (user_id, name, image, mime_type, price, category)
-     values ($1, $2, $3, $4, $5, $6)
-     returning id, name, price, category, mime_type, created_at`,
-    [userId, name, image, mimeType, price, category]
+    `insert into products (user_id, name, image, mime_type, price, category, description)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     returning id, name, price, category, description, mime_type, created_at`,
+    [userId, name, image, mimeType, price, category, description]
   );
   return rows[0];
 }
@@ -53,16 +55,35 @@ export async function updateProduct(
   userId: string,
   name: string,
   price: number | null,
-  category: string | null
+  category: string | null,
+  description: string | null
 ): Promise<Product | null> {
   const { rows } = await pool.query(
     `update products
-     set name = $3, price = $4, category = $5
+     set name = $3, price = $4, category = $5, description = $6
      where id = $1 and user_id = $2
-     returning id, name, price, category, mime_type, created_at`,
-    [id, userId, name, price, category]
+     returning id, name, price, category, description, mime_type, created_at`,
+    [id, userId, name, price, category, description]
   );
   return rows[0] ?? null;
+}
+
+// Ajusta todos los precios (o los de una categoría) por un porcentaje y los redondea
+// al múltiplo de `step` más cercano (0.01 = sin redondeo, 10, 50, 100...).
+export async function bulkUpdatePrices(
+  userId: string,
+  percent: number,
+  step: number,
+  category: string | null
+): Promise<number> {
+  const { rowCount } = await pool.query(
+    `update products
+     set price = round(price * (1 + $2::numeric / 100) / $3::numeric) * $3::numeric
+     where user_id = $1 and price is not null
+       and ($4::text is null or category = $4)`,
+    [userId, percent, step, category]
+  );
+  return rowCount ?? 0;
 }
 
 export async function deleteProduct(id: string, userId: string): Promise<boolean> {

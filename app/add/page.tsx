@@ -1,238 +1,28 @@
-"use client";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { getUserById } from "@/lib/db";
+import AppHeader from "@/components/AppHeader";
+import BackLink from "@/components/BackLink";
+import AddProductForm from "./AddProductForm";
 
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { compressBase64Image, compressImage } from "@/lib/image";
+export const dynamic = "force-dynamic";
 
-type Step = "idle" | "processing" | "review" | "saving";
+export default async function AddProduct() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
 
-export default function AddProduct() {
-  const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [step, setStep] = useState<Step>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("");
-  const [categories, setCategories] = useState<string[]>([]);
-  const [resultImage, setResultImage] = useState<string | null>(null);
-  const [resultMimeType, setResultMimeType] = useState("image/png");
-
-  useEffect(() => {
-    fetch("/api/business")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json?.categories) setCategories(json.categories);
-      })
-      .catch(() => {});
-  }, []);
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setError(null);
-    setStep("processing");
-
-    try {
-      const { data, mimeType } = await compressImage(file);
-      const res = await fetch("/api/process-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: data, mimeType }),
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error ?? "Error procesando la imagen.");
-      }
-
-      setName(json.name);
-      setResultImage(json.image);
-      setResultMimeType(json.mimeType);
-      setStep("review");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo salió mal.");
-      setStep("idle");
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  async function handleSave() {
-    if (!resultImage) return;
-    setStep("saving");
-    setError(null);
-
-    try {
-      // La imagen sin fondo vuelve de Gemini como PNG pesado; en JPEG ocupa mucho menos.
-      const { data, mimeType } = await compressBase64Image(resultImage, resultMimeType);
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          image: data,
-          mimeType,
-          price: price.trim() === "" ? null : price,
-          category: category.trim() === "" ? null : category,
-        }),
-      });
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error ?? "Error guardando el producto.");
-      }
-
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo salió mal.");
-      setStep("review");
-    }
-  }
-
-  function handleRetake() {
-    setResultImage(null);
-    setName("");
-    setPrice("");
-    setCategory("");
-    setStep("idle");
-  }
+  const user = await getUserById(session.user.id);
+  if (!user?.slug) redirect("/onboarding");
 
   return (
-    <main className="min-h-screen bg-paper p-4 sm:p-8">
-      <div className="mx-auto max-w-md">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink mb-5 transition-colors"
-        >
-          ← Volver al catálogo
-        </Link>
-        <h1 className="font-serif text-2xl font-semibold text-ink mb-6">
+    <main className="min-h-screen bg-paper">
+      <AppHeader slug={user.slug} />
+      <div className="mx-auto max-w-md p-4 sm:py-8">
+        <BackLink href="/dashboard">Volver al catálogo</BackLink>
+        <h1 className="mt-3 mb-6 font-serif text-3xl font-semibold tracking-tight text-ink">
           Agregar producto
         </h1>
-
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 text-red-700 text-sm p-3">
-            {error}
-          </div>
-        )}
-
-        {(step === "idle" || step === "processing") && (
-          <div className="flex flex-col items-center gap-4">
-            <label className="w-full aspect-square rounded-2xl border-2 border-dashed border-line flex flex-col items-center justify-center gap-3 cursor-pointer bg-white hover:border-accent/50 hover:bg-accent-soft/30 transition-colors">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleFileChange}
-                disabled={step === "processing"}
-              />
-              {step === "processing" ? (
-                <>
-                  <div className="h-9 w-9 border-2 border-line border-t-accent rounded-full animate-spin" />
-                  <p className="text-sm text-ink-soft">
-                    Identificando el producto y preparando la foto...
-                  </p>
-                </>
-              ) : (
-                <>
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft text-2xl">
-                    📷
-                  </span>
-                  <p className="text-sm text-ink-soft">
-                    Tocá para sacar o elegir una foto
-                  </p>
-                </>
-              )}
-            </label>
-          </div>
-        )}
-
-        {(step === "review" || step === "saving") && resultImage && (
-          <div className="flex flex-col gap-4">
-            <div className="w-full aspect-square rounded-2xl border border-line bg-white flex items-center justify-center overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`data:${resultMimeType};base64,${resultImage}`}
-                alt={name}
-                className="w-full h-full object-contain"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-ink">
-                Nombre del producto
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
-                disabled={step === "saving"}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-ink">
-                Precio (opcional)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Ej: 2500"
-                className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
-                disabled={step === "saving"}
-              />
-            </div>
-
-            {categories.length > 0 && (
-              <div>
-                <label className="text-sm font-medium text-ink">
-                  Categoría (opcional)
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="select-field mt-1 w-full rounded-lg border border-line px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition cursor-pointer"
-                  disabled={step === "saving"}
-                >
-                  <option value="">Sin categoría</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleRetake}
-                disabled={step === "saving"}
-                className="flex-1 rounded-full border border-line py-2.5 text-sm font-medium text-ink hover:bg-paper-soft transition-colors disabled:opacity-50"
-              >
-                Sacar otra foto
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={step === "saving" || !name.trim()}
-                className="flex-1 rounded-full bg-ink text-paper py-2.5 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
-              >
-                {step === "saving" ? "Guardando..." : "Guardar en catálogo"}
-              </button>
-            </div>
-          </div>
-        )}
+        <AddProductForm categories={user.categories ?? []} />
       </div>
     </main>
   );

@@ -1,21 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { getUserById } from "@/lib/db";
 
 const NAME_MODEL = "gemini-3.6-flash";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 const NAME_URL = `https://generativelanguage.googleapis.com/v1beta/models/${NAME_MODEL}:generateContent`;
 const IMAGE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`;
+// La key va por header (no en la URL) así no queda en logs, y funciona con los dos
+// formatos de key de Google AI Studio (los viejos "AIza…" y los nuevos "AQ.…").
+const GEMINI_HEADERS = {
+  "Content-Type": "application/json",
+  "x-goog-api-key": process.env.GEMINI_API_KEY ?? "",
+};
 
-const NAME_PROMPT = `Sos un asistente que arma el catálogo de una tienda a partir de fotos de productos.
-Mirá la foto y respondé ÚNICAMENTE con un nombre corto y descriptivo en español para el producto principal de la imagen (ej: "Taza de café"). No agregues nada más, ni explicaciones, ni comillas.`;
+function describePrompt(categories: string[]) {
+  const categoryRule = categories.length
+    ? `- "category": la categoría del catálogo que mejor le corresponde, elegida EXACTAMENTE de esta lista: ${categories
+        .map((c) => `"${c}"`)
+        .join(", ")}. Si ninguna encaja, dejala vacía ("").`
+    : `- "category": dejala vacía ("").`;
+
+  return `Sos un asistente que arma el catálogo de una tienda a partir de fotos de productos.
+Mirá la foto y describí el producto principal, en español rioplatense neutro:
+- "name": nombre corto y descriptivo (ej: "Taza de café"), sin comillas ni marcas inventadas.
+- "description": una frase corta y atractiva para el cliente, de hasta 90 caracteres, sin precio ni emojis. Mencioná solo lo que se ve en la foto (material, color, tamaño aparente, sabor si está en el envase).
+${categoryRule}`;
+}
+
+// Garantiza que Gemini devuelva JSON con esta forma; con `enum`, la categoría
+// solo puede ser una de las del negocio.
+function describeSchema(categories: string[]) {
+  return {
+    type: "OBJECT",
+    properties: {
+      name: { type: "STRING" },
+      description: { type: "STRING" },
+      category: categories.length
+        ? { type: "STRING", enum: [...categories, ""] }
+        : { type: "STRING" },
+    },
+    required: ["name", "description", "category"],
+  };
+}
+
+type Suggestion = { name: string; description: string; category: string };
+
+function parseSuggestion(text: string | undefined, categories: string[]): Suggestion {
+  let raw: Partial<Suggestion> = {};
+  try {
+    raw = JSON.parse(text ?? "{}");
+  } catch {
+    // Si no vino JSON válido, se usa el texto crudo como nombre.
+    raw = { name: text };
+  }
+  const name = raw.name?.trim() || "Producto sin identificar";
+  const description = raw.description?.trim().slice(0, 200) ?? "";
+  const category = categories.includes(raw.category ?? "") ? raw.category! : "";
+  return { name, description, category };
+}
 
 const BACKGROUND_PROMPT = `Edit this photo of a product for an e-commerce catalog: remove everything in the background and replace it with a solid, plain, pure white background. Keep the main product exactly as it is — same shape, size, position, colors, lighting and details — with no other edits, no added shadows or reflections. Output only the edited image.`;
 
 async function removeBackground(image: string, mimeType: string) {
   try {
-    const res = await fetch(`${IMAGE_URL}?key=${process.env.GEMINI_API_KEY}`, {
+    const res = await fetch(IMAGE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: GEMINI_HEADERS,
       body: JSON.stringify({
         contents: [
           {
@@ -59,19 +109,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falta la imagen." }, { status: 400 });
     }
 
+    const user = await getUserById(session.user.id);
+    const categories = user?.categories ?? [];
+
     const [nameRes, background] = await Promise.all([
-      fetch(`${NAME_URL}?key=${process.env.GEMINI_API_KEY}`, {
+      fetch(NAME_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: GEMINI_HEADERS,
         body: JSON.stringify({
           contents: [
             {
               parts: [
-                { text: NAME_PROMPT },
+                { text: describePrompt(categories) },
                 { inline_data: { mime_type: mimeType, data: image } },
               ],
             },
           ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: describeSchema(categories),
+          },
         }),
       }),
       removeBackground(image, mimeType),
@@ -87,13 +144,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const name: string =
-      nameJson.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ??
-      "Producto sin identificar";
+    const suggestion = parseSuggestion(
+      nameJson.candidates?.[0]?.content?.parts?.[0]?.text,
+      categories
+    );
 
     // Si falla quitar el fondo, se guarda la foto original tal cual para no bloquear el flujo.
     return NextResponse.json({
-      name,
+      ...suggestion,
       image: background?.image ?? image,
       mimeType: background?.mimeType ?? mimeType,
     });

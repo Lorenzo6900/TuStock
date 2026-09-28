@@ -18,6 +18,7 @@ export default function ProductCard({
   const [name, setName] = useState(product.name);
   const [price, setPrice] = useState(product.price !== null ? String(product.price) : "");
   const [category, setCategory] = useState(product.category ?? "");
+  const [description, setDescription] = useState(product.description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export default function ProductCard({
           name,
           price: price.trim() === "" ? null : price,
           category: category.trim() === "" ? null : category,
+          description: description.trim() === "" ? null : description,
         }),
       });
       const json = await res.json();
@@ -89,7 +91,7 @@ export default function ProductCard({
               <span className="text-xs text-ink-soft truncate">{product.category}</span>
             )}
             {product.price !== null && (
-              <span className="text-xs font-medium text-accent ml-auto">
+              <span className="text-xs font-medium text-accent ml-auto tabular-nums">
                 {formatPrice(product.price)}
               </span>
             )}
@@ -148,6 +150,21 @@ export default function ProductCard({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
+                disabled={saving}
+              />
+            </div>
+            <div>
+              <label htmlFor={`desc-${product.id}`} className="text-sm font-medium text-ink">
+                Descripción
+              </label>
+              <textarea
+                id={`desc-${product.id}`}
+                rows={2}
+                maxLength={200}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Sin descripción"
+                className="mt-1 w-full resize-none rounded-lg border border-line px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
                 disabled={saving}
               />
             </div>

@@ -15,7 +15,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - **Multi-tenant real**: cada usuario tiene su cuenta y su propio catálogo (aislado por `user_id`).
 - Login con Google o con email/contraseña.
 - Cada negocio elige un nombre → se genera un slug único para su URL pública (`/menu/<slug>`).
-- El catálogo guarda: **imagen + nombre + precio + categoría** (editables y borrables desde el dashboard). Stock/cantidad → etapa futura.
+- El catálogo guarda: **imagen + nombre + descripción + precio + categoría** (editables y borrables desde el dashboard). Stock/cantidad → etapa futura.
 - Recuperar contraseña por mail (Gmail SMTP) y cambiar nombre del negocio/slug desde `/settings`.
 
 ## Flujo de usuario
@@ -25,11 +25,12 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
    - Con Google: como Google no da el nombre del negocio, se pide en un paso extra (`/onboarding`) la primera vez.
    - Con email: se pide todo junto y se genera el slug ahí mismo.
 3. **Dashboard (`/dashboard`, protegido)**: catálogo del dueño — grilla de productos, botón "Generar QR" y "+ Agregar producto".
-4. **Agregar producto (`/add`, protegido)**: sacar/subir foto → se achica en el celular a 1280px JPEG (`lib/image.ts`) → en paralelo Gemini (a) le pone nombre y (b) le quita el fondo y lo deja blanco → pantalla de revisión (editable) → guardar. Si falla lo del fondo, se guarda la foto original tal cual para no bloquear el flujo. Solo se guarda la imagen final (no el original), para no gastar espacio de más.
+4. **Agregar producto (`/add`, protegido)**: sacar/subir foto → se achica en el celular a 1280px JPEG (`lib/image.ts`) → en paralelo Gemini (a) sugiere nombre, descripción corta y categoría (elegida de las del negocio, con `responseSchema` + `enum`) y (b) le quita el fondo y lo deja blanco → pantalla de revisión (editable) → guardar. Si falla lo del fondo, se guarda la foto original tal cual para no bloquear el flujo. Solo se guarda la imagen final (no el original), para no gastar espacio de más.
 5. **Compartir**: "Generar QR" muestra un QR apuntando a `/menu/<slug>` — la vista pública de solo lectura, sin ningún botón de edición.
 6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada. Está cacheado (ISR) y se invalida al instante cuando el dueño cambia algo. Si el slug es viejo, redirige al nuevo.
-7. **Ajustes (`/settings`, protegido)**: cambiar nombre del negocio y slug. El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
-8. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
+7. **Actualizar precios (dashboard)**: sube o baja por % todos los precios o los de una categoría, con redondeo opcional ($10/$50/$100) y vista previa. `POST /api/products/bulk-price`; la vista previa usa `adjustPrice` (`lib/format.ts`), que replica el cálculo de `bulkUpdatePrices` en SQL.
+8. **Ajustes (`/settings`, protegido)**: cambiar nombre del negocio y slug. El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
+9. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
 
 ## Decisiones técnicas
 
@@ -69,6 +70,8 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - `app/api/products/[id]/image/route.ts` — sirve la imagen (pública, ID no adivinable).
 - `app/api/qr/route.ts` — genera el PNG del QR.
 - `app/settings/` + `PATCH /api/business` — cambiar nombre del negocio/slug.
+- `components/AppHeader.tsx` — header de las pantallas del dueño (Ver menú / Ajustes / Salir; en el celular solo íconos, con área táctil de 44px). `components/BackLink.tsx` — link "Volver".
+- `components/BulkPriceButton.tsx` + `app/api/products/bulk-price/route.ts` — actualización masiva de precios.
 - `app/forgot-password/`, `app/reset-password/` + `app/api/password-reset/{request,confirm}` — recuperar contraseña.
 - `lib/image.ts` — achica/comprime fotos en el navegador antes de subirlas.
 - `lib/menuCache.ts` — invalida la caché del menú público.
@@ -99,6 +102,8 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - **Login roto en producción con "server configuration error"**: las variables de entorno se habían guardado en Vercel con el campo *Value* vacío (probablemente un paste que no se aplicó). El diagnóstico definitivo fue crear una ruta temporal que hacía `Object.keys(process.env)` — mostró que las claves SÍ existían pero con string vacío. Lección: si `vercel env ls` dice que existen pero la app no las ve, no asumir que el nombre está mal — puede ser el valor vacío.
 - **`OAuthAccountNotLinked`**: pasa si ya existe un `user` en la DB con ese email (creado con contraseña) y después intentás loguearte con Google usando el mismo email — Auth.js no linkea automático por seguridad. Se resuelve borrando la cuenta vieja (si no tiene datos) o logueándose con la contraseña original.
 - **`redirect_uri_mismatch` al loguearse con Google en producción**: pasa si entrás por una **URL de deployment específico** de Vercel (tipo `tu-stock-ekwict4ya-lorenzo-s-team.vercel.app`, que cambia en cada deploy) en vez de la URL estable (`https://tu-stock-tau.vercel.app`). Solo la estable está autorizada en Google Cloud Console — no hay que agregar la de cada deploy, se rompería de nuevo en el próximo. Para probar login en producción, siempre entrar por la URL estable.
+- **La key de Gemini va por header `x-goog-api-key`** (no `?key=` en la URL), así no queda en logs. La `GEMINI_API_KEY` del `.env.local` de esta máquina tiene formato `AQ.…` y Gemini la rechaza ("invalid authentication credentials"): para probar la IA en local hay que poner una key `AIza…` de AI Studio.
+- **Tipografías**: Fraunces se carga como fuente variable (todos los pesos + eje `opsz`). Antes solo tenía 500/600 y el menú usaba `font-bold`, así que el navegador falseaba la negrita.
 - **`models/gemini-2.5-flash is no longer available to new users`**: al crear una API key en una cuenta de Google que nunca usó Gemini API, algunos modelos (como `gemini-2.5-flash`) no están habilitados para "usuarios nuevos" — hay que usar el modelo que sugiere el propio error (en este caso `gemini-3.6-flash`). El modelo de imagen (`gemini-2.5-flash-image`) sí funcionó igual con la cuenta nueva.
 
 ## Pendiente (próxima etapa)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { optionalText } from "@/lib/format";
 import { insertProduct, listProducts } from "@/lib/db";
 import { revalidateMenuForUser } from "@/lib/menuCache";
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, image, mimeType, price, category } = await req.json();
+    const { name, image, mimeType, price, category, description } = await req.json();
 
     if (!name || !image || !mimeType) {
       return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
@@ -45,7 +46,8 @@ export async function POST(req: NextRequest) {
       Buffer.from(image, "base64"),
       mimeType,
       parsedPrice,
-      category && typeof category === "string" && category.trim() ? category.trim() : null
+      optionalText(category, 100),
+      optionalText(description, 200)
     );
     await revalidateMenuForUser(session.user.id);
     return NextResponse.json({ product });

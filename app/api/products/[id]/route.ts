@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { optionalText } from "@/lib/format";
 import { deleteProduct, updateProduct } from "@/lib/db";
 import { revalidateMenuForUser } from "@/lib/menuCache";
 
@@ -13,7 +14,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const { name, price, category } = await req.json();
+  const { name, price, category, description } = await req.json();
 
   if (!name || !String(name).trim()) {
     return NextResponse.json({ error: "El nombre es obligatorio." }, { status: 400 });
@@ -32,7 +33,8 @@ export async function PATCH(
     session.user.id,
     String(name).trim(),
     parsedPrice,
-    category && typeof category === "string" && category.trim() ? category.trim() : null
+    optionalText(category, 100),
+    optionalText(description, 200)
   );
 
   if (!product) {
