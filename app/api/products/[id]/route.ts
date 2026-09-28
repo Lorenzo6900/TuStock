@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { deleteProduct, updateProduct } from "@/lib/db";
+import { revalidateMenuForUser } from "@/lib/menuCache";
 
 export async function PATCH(
   req: NextRequest,
@@ -38,6 +39,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Producto no encontrado." }, { status: 404 });
   }
 
+  await revalidateMenuForUser(session.user.id);
   return NextResponse.json({ product });
 }
 
@@ -57,5 +59,6 @@ export async function DELETE(
     return NextResponse.json({ error: "Producto no encontrado." }, { status: 404 });
   }
 
+  await revalidateMenuForUser(session.user.id);
   return NextResponse.json({ ok: true });
 }

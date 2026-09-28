@@ -3,21 +3,9 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { compressBase64Image, compressImage } from "@/lib/image";
 
 type Step = "idle" | "processing" | "review" | "saving";
-
-function fileToBase64(file: File): Promise<{ data: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const [, data] = result.split(",");
-      resolve({ data, mimeType: file.type });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function AddProduct() {
   const router = useRouter();
@@ -49,7 +37,7 @@ export default function AddProduct() {
     setStep("processing");
 
     try {
-      const { data, mimeType } = await fileToBase64(file);
+      const { data, mimeType } = await compressImage(file);
       const res = await fetch("/api/process-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,13 +67,15 @@ export default function AddProduct() {
     setError(null);
 
     try {
+      // La imagen sin fondo vuelve de Gemini como PNG pesado; en JPEG ocupa mucho menos.
+      const { data, mimeType } = await compressBase64Image(resultImage, resultMimeType);
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          image: resultImage,
-          mimeType: resultMimeType,
+          image: data,
+          mimeType,
           price: price.trim() === "" ? null : price,
           category: category.trim() === "" ? null : category,
         }),

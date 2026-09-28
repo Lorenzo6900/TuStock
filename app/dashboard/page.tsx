@@ -23,16 +23,24 @@ export default async function Dashboard() {
       <header className="border-b border-line bg-white/60">
         <div className="mx-auto max-w-4xl px-4 sm:px-8 py-4 flex items-center justify-between">
           <Logo href="/dashboard" />
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button className="text-sm text-ink-soft hover:text-ink transition-colors">
-              Cerrar sesión
-            </button>
-          </form>
+          <div className="flex items-center gap-5">
+            <Link
+              href="/settings"
+              className="text-sm text-ink-soft hover:text-ink transition-colors"
+            >
+              Ajustes
+            </Link>
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/login" });
+              }}
+            >
+              <button className="text-sm text-ink-soft hover:text-ink transition-colors">
+                Cerrar sesión
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 

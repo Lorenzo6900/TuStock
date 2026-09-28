@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createUserWithPassword, getUserByEmail, isSlugTaken } from "@/lib/db";
 import { slugify } from "@/lib/slug";
+import { revalidateMenu } from "@/lib/menuCache";
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       Array.isArray(categories) ? categories : []
     );
 
+    revalidateMenu(user.slug);
     return NextResponse.json({ user: { id: user.id, email: user.email, slug: user.slug } });
   } catch (err) {
     console.error(err);

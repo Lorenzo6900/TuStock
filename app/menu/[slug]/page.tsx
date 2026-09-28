@@ -1,9 +1,16 @@
-import { notFound } from "next/navigation";
-import { getUserBySlug, listProducts, type Product } from "@/lib/db";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getSlugRedirect, getUserBySlug, listProducts, type Product } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
 
-export const dynamic = "force-dynamic";
+// Cada menú se renderiza la primera vez que alguien lo abre y queda en caché.
+// Se invalida al instante cuando el dueño cambia algo (ver lib/menuCache.ts);
+// el revalidate es solo una red de seguridad.
+export const revalidate = 3600;
+
+export function generateStaticParams() {
+  return [];
+}
 
 const UNCATEGORIZED = "Otros";
 
@@ -60,7 +67,12 @@ export default async function Menu({
   const { slug } = await params;
   const user = await getUserBySlug(slug);
 
-  if (!user) notFound();
+  if (!user) {
+    // Slug viejo de un negocio que se renombró: los QR impresos siguen andando.
+    const newSlug = await getSlugRedirect(slug);
+    if (newSlug) permanentRedirect(`/menu/${newSlug}`);
+    notFound();
+  }
 
   const products = await listProducts(user.id);
   const hasCategories = products.some((p) => p.category?.trim());

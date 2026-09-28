@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { insertProduct, listProducts } from "@/lib/db";
+import { revalidateMenuForUser } from "@/lib/menuCache";
 
 export async function GET() {
   const session = await auth();
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
       parsedPrice,
       category && typeof category === "string" && category.trim() ? category.trim() : null
     );
+    await revalidateMenuForUser(session.user.id);
     return NextResponse.json({ product });
   } catch (err) {
     console.error(err);

@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-const PROTECTED_PATHS = ["/dashboard", "/add", "/onboarding"];
-const AUTH_PATHS = ["/login", "/signup"];
+const PROTECTED_PATHS = ["/dashboard", "/add", "/onboarding", "/settings"];
+const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -22,5 +22,14 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/add/:path*", "/onboarding/:path*", "/login", "/signup"],
+  matcher: [
+    "/dashboard/:path*",
+    "/add/:path*",
+    "/onboarding/:path*",
+    "/settings/:path*",
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/reset-password",
+  ],
 };

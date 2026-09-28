@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isSlugTaken, setUserBusinessInfo } from "@/lib/db";
 import { slugify } from "@/lib/slug";
+import { revalidateMenu } from "@/lib/menuCache";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -32,5 +33,6 @@ export async function POST(req: NextRequest) {
     businessType,
     Array.isArray(categories) ? categories : []
   );
+  revalidateMenu(user.slug);
   return NextResponse.json({ slug: user.slug });
 }

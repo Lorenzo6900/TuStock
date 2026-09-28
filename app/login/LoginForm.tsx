@@ -81,9 +81,17 @@ export default function LoginForm() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-ink">
-                Contraseña
-              </label>
+              <div className="flex items-baseline justify-between">
+                <label className="text-sm font-medium text-ink">
+                  Contraseña
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-ink-soft hover:text-accent transition-colors"
+                >
+                  ¿Te la olvidaste?
+                </Link>
+              </div>
               <input
                 type="password"
                 required

@@ -105,9 +105,108 @@ export async function getUserById(id: string): Promise<User | null> {
   return rows[0] ?? null;
 }
 
-export async function isSlugTaken(slug: string): Promise<boolean> {
-  const { rows } = await pool.query("select 1 from users where slug = $1", [slug]);
+// Un slug está ocupado si otro negocio lo usa hoy o lo usó antes (sus QR viejos
+// siguen apuntando ahí). Si se pasa `userId`, los slugs propios no cuentan.
+export async function isSlugTaken(slug: string, userId?: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `select 1 from users where slug = $1 and ($2::uuid is null or id <> $2)
+     union all
+     select 1 from slug_redirects where old_slug = $1 and ($2::uuid is null or user_id <> $2)`,
+    [slug, userId ?? null]
+  );
   return rows.length > 0;
+}
+
+export async function getSlugRedirect(oldSlug: string): Promise<string | null> {
+  const { rows } = await pool.query(
+    `select u.slug from slug_redirects r join users u on u.id = r.user_id
+     where r.old_slug = $1`,
+    [oldSlug]
+  );
+  return rows[0]?.slug ?? null;
+}
+
+// Cambia nombre y slug del negocio; el slug anterior queda como redirección.
+export async function updateBusinessProfile(
+  userId: string,
+  businessName: string,
+  newSlug: string
+): Promise<{ user: User; oldSlug: string | null }> {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    const { rows: current } = await client.query(
+      "select slug from users where id = $1 for update",
+      [userId]
+    );
+    const oldSlug: string | null = current[0]?.slug ?? null;
+
+    if (oldSlug && oldSlug !== newSlug) {
+      await client.query(
+        `insert into slug_redirects (old_slug, user_id) values ($1, $2)
+         on conflict (old_slug) do nothing`,
+        [oldSlug, userId]
+      );
+    }
+    // Si vuelve a un slug que ya había usado, deja de ser redirección.
+    await client.query(
+      "delete from slug_redirects where old_slug = $1 and user_id = $2",
+      [newSlug, userId]
+    );
+
+    const { rows } = await client.query(
+      "update users set business_name = $2, slug = $3 where id = $1 returning *",
+      [userId, businessName, newSlug]
+    );
+    await client.query("commit");
+    return { user: rows[0], oldSlug };
+  } catch (err) {
+    await client.query("rollback");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getUserSlug(userId: string): Promise<string | null> {
+  const { rows } = await pool.query("select slug from users where id = $1", [userId]);
+  return rows[0]?.slug ?? null;
+}
+
+export async function createPasswordResetToken(
+  userId: string,
+  tokenHash: string,
+  expires: Date
+): Promise<void> {
+  // Un solo link válido por usuario: pedir uno nuevo invalida el anterior.
+  await pool.query("delete from password_reset_tokens where user_id = $1", [userId]);
+  await pool.query(
+    "insert into password_reset_tokens (token_hash, user_id, expires) values ($1, $2, $3)",
+    [tokenHash, userId, expires]
+  );
+}
+
+export async function getLastPasswordResetRequest(userId: string): Promise<Date | null> {
+  const { rows } = await pool.query(
+    "select max(created_at) as last from password_reset_tokens where user_id = $1",
+    [userId]
+  );
+  return rows[0]?.last ?? null;
+}
+
+// Consume el token (se borra al usarlo) y devuelve el usuario si era válido.
+export async function consumePasswordResetToken(tokenHash: string): Promise<string | null> {
+  const { rows } = await pool.query(
+    "delete from password_reset_tokens where token_hash = $1 returning user_id, expires",
+    [tokenHash]
+  );
+  const row = rows[0];
+  if (!row || new Date(row.expires) < new Date()) return null;
+  return row.user_id;
+}
+
+export async function setUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await pool.query("update users set password = $2 where id = $1", [userId, passwordHash]);
 }
 
 export async function createUserWithPassword(

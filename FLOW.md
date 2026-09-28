@@ -15,7 +15,8 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - **Multi-tenant real**: cada usuario tiene su cuenta y su propio catálogo (aislado por `user_id`).
 - Login con Google o con email/contraseña.
 - Cada negocio elige un nombre → se genera un slug único para su URL pública (`/menu/<slug>`).
-- El catálogo guarda: **imagen + nombre**. Precio, stock, categoría → etapas futuras.
+- El catálogo guarda: **imagen + nombre + precio + categoría** (editables y borrables desde el dashboard). Stock/cantidad → etapa futura.
+- Recuperar contraseña por mail (Gmail SMTP) y cambiar nombre del negocio/slug desde `/settings`.
 
 ## Flujo de usuario
 
@@ -24,9 +25,11 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
    - Con Google: como Google no da el nombre del negocio, se pide en un paso extra (`/onboarding`) la primera vez.
    - Con email: se pide todo junto y se genera el slug ahí mismo.
 3. **Dashboard (`/dashboard`, protegido)**: catálogo del dueño — grilla de productos, botón "Generar QR" y "+ Agregar producto".
-4. **Agregar producto (`/add`, protegido)**: sacar/subir foto → en paralelo Gemini (a) le pone nombre y (b) le quita el fondo y lo deja blanco → pantalla de revisión (editable) → guardar. Si falla lo del fondo, se guarda la foto original tal cual para no bloquear el flujo. Solo se guarda la imagen final (no el original), para no gastar espacio de más.
+4. **Agregar producto (`/add`, protegido)**: sacar/subir foto → se achica en el celular a 1280px JPEG (`lib/image.ts`) → en paralelo Gemini (a) le pone nombre y (b) le quita el fondo y lo deja blanco → pantalla de revisión (editable) → guardar. Si falla lo del fondo, se guarda la foto original tal cual para no bloquear el flujo. Solo se guarda la imagen final (no el original), para no gastar espacio de más.
 5. **Compartir**: "Generar QR" muestra un QR apuntando a `/menu/<slug>` — la vista pública de solo lectura, sin ningún botón de edición.
-6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada.
+6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada. Está cacheado (ISR) y se invalida al instante cuando el dueño cambia algo. Si el slug es viejo, redirige al nuevo.
+7. **Ajustes (`/settings`, protegido)**: cambiar nombre del negocio y slug. El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
+8. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
 
 ## Decisiones técnicas
 
@@ -39,6 +42,8 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 | Frontend | Next.js (React) | Un solo proyecto sirve frontend y backend, fácil de desplegar gratis (Vercel). |
 | Base de datos + imágenes | Neon (Postgres serverless, capa gratuita) | Usuarios, sesiones y productos (imagen en `bytea`) todo en la misma base. |
 | QR | Librería `qrcode` (server-side, sin servicios externos) | Gratis, sin depender de un tercero. |
+| Caché del menú | ISR (`generateStaticParams` vacío + `revalidate`) + `revalidatePath` en cada cambio (`lib/menuCache.ts`) | No se usa `cacheComponents` (Next 16): obligaría a revisar todas las páginas. Cualquier ruta nueva que cambie datos del menú tiene que llamar a `revalidateMenu*`. |
+| Mails | Gmail SMTP con `nodemailer` y contraseña de aplicación | Gratis, llega a cualquier dirección sin dominio propio. Sin `GMAIL_USER`/`GMAIL_APP_PASSWORD`, el mail se imprime en la consola del servidor. |
 
 ## APIs / cuentas que se usan
 - **Google AI Studio** (Gemini API key) — para nombrar el producto (gratis) y quitar el fondo (pago, centavos por imagen).
@@ -63,15 +68,20 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - `app/api/products/route.ts` — guarda/lista productos, siempre scopeado a `session.user.id`.
 - `app/api/products/[id]/image/route.ts` — sirve la imagen (pública, ID no adivinable).
 - `app/api/qr/route.ts` — genera el PNG del QR.
+- `app/settings/` + `PATCH /api/business` — cambiar nombre del negocio/slug.
+- `app/forgot-password/`, `app/reset-password/` + `app/api/password-reset/{request,confirm}` — recuperar contraseña.
+- `lib/image.ts` — achica/comprime fotos en el navegador antes de subirlas.
+- `lib/menuCache.ts` — invalida la caché del menú público.
+- `lib/mail.ts`, `lib/appUrl.ts`, `lib/resetToken.ts` — envío de mails, URL pública para links y tokens de reseteo.
 - `lib/db.ts` — todas las queries a Neon (usuarios y productos).
 - `lib/slug.ts` — genera el slug a partir del nombre del negocio.
-- `db/schema.sql` — esquema completo (usuarios, cuentas OAuth, sesiones, productos).
+- `db/schema.sql` — esquema completo (usuarios, cuentas OAuth, sesiones, productos, `password_reset_tokens`, `slug_redirects`).
 
 ## Para vos: cómo correrlo en local
 1. API key gratis de Google AI Studio en https://aistudio.google.com/apikey.
 2. Proyecto gratis en https://neon.tech, correr `db/schema.sql`, copiar el connection string.
 3. Credenciales OAuth en Google Cloud Console (Client ID/Secret) con `http://localhost:3000/api/auth/callback/google` como redirect URI autorizado (en producción hace falta agregar TAMBIÉN `https://tu-stock-tau.vercel.app/api/auth/callback/google`, ya está agregado).
-4. Copiar `.env.local.example` a `.env.local` y completar `GEMINI_API_KEY`, `DATABASE_URL`, `AUTH_SECRET` (generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`), `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`.
+4. Copiar `.env.local.example` a `.env.local` y completar `GEMINI_API_KEY`, `DATABASE_URL`, `AUTH_SECRET` (generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`), `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` y, opcional, `GMAIL_USER`/`GMAIL_APP_PASSWORD`.
 5. `npm run dev` y abrir `http://localhost:3000`.
 
 **Nota de entorno:** en PowerShell, `npm`/`npx` fallan por política de ejecución de scripts — usar `npm.cmd`/`npx.cmd` en su lugar (o correr en `cmd` en vez de PowerShell).
@@ -92,7 +102,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - **`models/gemini-2.5-flash is no longer available to new users`**: al crear una API key en una cuenta de Google que nunca usó Gemini API, algunos modelos (como `gemini-2.5-flash`) no están habilitados para "usuarios nuevos" — hay que usar el modelo que sugiere el propio error (en este caso `gemini-3.6-flash`). El modelo de imagen (`gemini-2.5-flash-image`) sí funcionó igual con la cuenta nueva.
 
 ## Pendiente (próxima etapa)
-- Precio, stock/cantidad, categorías, búsqueda/filtros.
-- Edición/borrado de productos ya cargados.
-- Recuperar contraseña (hoy no existe flujo de "olvidé mi contraseña").
-- Permitir editar el nombre del negocio/slug después de creado (hoy se define una sola vez).
+- Stock/cantidad, búsqueda/filtros.
+- Límite de uso diario en `/api/process-image` (quitar el fondo cuesta plata).
+- Mover las imágenes de `bytea` en Neon a un storage de archivos (Vercel Blob / R2) antes de llenar la capa gratis.
+- Al resetear la contraseña, las sesiones abiertas (JWT) siguen valiendo hasta que vencen.

@@ -65,3 +65,19 @@ alter table products add column if not exists price numeric(10, 2);
 alter table products add column if not exists category text;
 alter table users add column if not exists business_type text;
 alter table users add column if not exists categories text[];
+
+-- Recuperar contraseña: se guarda solo el hash del token, nunca el token en sí.
+create table if not exists password_reset_tokens (
+  token_hash text primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  expires timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists password_reset_tokens_user_id_idx on password_reset_tokens (user_id);
+
+-- Slugs viejos: si el negocio cambia su slug, los QR ya impresos siguen andando.
+create table if not exists slug_redirects (
+  old_slug text primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
