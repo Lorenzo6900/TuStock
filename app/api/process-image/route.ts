@@ -13,11 +13,15 @@ const GEMINI_HEADERS = {
   "x-goog-api-key": process.env.GEMINI_API_KEY ?? "",
 };
 
+// Gemini no acepta strings vacíos en un `enum`, así que "ninguna categoría" se
+// pide con este valor y después se convierte en "".
+const NO_CATEGORY = "__ninguna__";
+
 function describePrompt(categories: string[]) {
   const categoryRule = categories.length
     ? `- "category": la categoría del catálogo que mejor le corresponde, elegida EXACTAMENTE de esta lista: ${categories
         .map((c) => `"${c}"`)
-        .join(", ")}. Si ninguna encaja, dejala vacía ("").`
+        .join(", ")}. Si ninguna encaja, usá "${NO_CATEGORY}".`
     : `- "category": dejala vacía ("").`;
 
   return `Sos un asistente que arma el catálogo de una tienda a partir de fotos de productos.
@@ -36,7 +40,7 @@ function describeSchema(categories: string[]) {
       name: { type: "STRING" },
       description: { type: "STRING" },
       category: categories.length
-        ? { type: "STRING", enum: [...categories, ""] }
+        ? { type: "STRING", enum: [...categories, NO_CATEGORY] }
         : { type: "STRING" },
     },
     required: ["name", "description", "category"],
@@ -110,7 +114,10 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await getUserById(session.user.id);
-    const categories = user?.categories ?? [];
+    // Sin vacías ni repetidas: Gemini rechaza el schema si el `enum` las tiene.
+    const categories = [
+      ...new Set((user?.categories ?? []).map((c) => c.trim()).filter(Boolean)),
+    ];
 
     const [nameRes, background] = await Promise.all([
       fetch(NAME_URL, {
