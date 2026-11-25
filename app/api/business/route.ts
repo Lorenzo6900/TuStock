@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { isSlugTaken, updateBusinessProfile } from "@/lib/db";
 import { slugify } from "@/lib/slug";
 import { revalidateMenu } from "@/lib/menuCache";
+import { normalizeWhatsapp } from "@/lib/whatsapp";
 
 export async function PATCH(req: NextRequest) {
   const session = await auth();
@@ -10,7 +11,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
 
-  const { businessName, slug: rawSlug } = await req.json();
+  const { businessName, slug: rawSlug, whatsapp: rawWhatsapp } = await req.json();
   const name = typeof businessName === "string" ? businessName.trim() : "";
   const slug = typeof rawSlug === "string" ? slugify(rawSlug) : "";
 
@@ -23,15 +24,28 @@ export async function PATCH(req: NextRequest) {
       { status: 400 }
     );
   }
+  // WhatsApp es opcional: vacío lo desactiva, pero si escribe algo tiene que ser válido.
+  const whatsappInput = typeof rawWhatsapp === "string" ? rawWhatsapp.trim() : "";
+  const whatsapp = whatsappInput ? normalizeWhatsapp(whatsappInput) : null;
+  if (whatsappInput && !whatsapp) {
+    return NextResponse.json(
+      { error: "El número de WhatsApp no parece válido. Probá con el código de área, ej: 11 2345 6789." },
+      { status: 400 }
+    );
+  }
   if (await isSlugTaken(slug, session.user.id)) {
     return NextResponse.json({ error: "Ese link ya lo usa otro negocio." }, { status: 409 });
   }
 
   try {
-    const { user, oldSlug } = await updateBusinessProfile(session.user.id, name, slug);
+    const { user, oldSlug } = await updateBusinessProfile(session.user.id, name, slug, whatsapp);
     // El viejo pasa a ser redirección y el nuevo puede tener un 404 cacheado.
     revalidateMenu(oldSlug, user.slug);
-    return NextResponse.json({ businessName: user.business_name, slug: user.slug });
+    return NextResponse.json({
+      businessName: user.business_name,
+      slug: user.slug,
+      whatsapp: user.whatsapp,
+    });
   } catch (err) {
     // Otro negocio tomó el mismo slug justo entre el chequeo y el update.
     if ((err as { code?: string }).code === "23505") {

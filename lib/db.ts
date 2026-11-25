@@ -22,6 +22,7 @@ export type User = {
   business_type: string | null;
   categories: string[] | null;
   slug: string | null;
+  whatsapp: string | null;
 };
 
 export async function listProducts(userId: string): Promise<Product[]> {
@@ -151,7 +152,8 @@ export async function getSlugRedirect(oldSlug: string): Promise<string | null> {
 export async function updateBusinessProfile(
   userId: string,
   businessName: string,
-  newSlug: string
+  newSlug: string,
+  whatsapp: string | null
 ): Promise<{ user: User; oldSlug: string | null }> {
   const client = await pool.connect();
   try {
@@ -176,8 +178,8 @@ export async function updateBusinessProfile(
     );
 
     const { rows } = await client.query(
-      "update users set business_name = $2, slug = $3 where id = $1 returning *",
-      [userId, businessName, newSlug]
+      "update users set business_name = $2, slug = $3, whatsapp = $4 where id = $1 returning *",
+      [userId, businessName, newSlug, whatsapp]
     );
     await client.query("commit");
     return { user: rows[0], oldSlug };

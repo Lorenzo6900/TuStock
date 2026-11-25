@@ -29,6 +29,7 @@ export default async function Settings() {
         <SettingsForm
           businessName={user.business_name ?? ""}
           slug={user.slug}
+          whatsapp={user.whatsapp ?? ""}
           origin={appUrl()}
         />
       </div>

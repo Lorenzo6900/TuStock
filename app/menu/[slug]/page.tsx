@@ -2,6 +2,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getSlugRedirect, getUserBySlug, listProducts, type Product } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
+import { AddToCartButton, CartBar, CartProvider } from "@/components/menu/Cart";
 
 // Cada menú se renderiza la primera vez que alguien lo abre y queda en caché.
 // Se invalida al instante cuando el dueño cambia algo (ver lib/menuCache.ts);
@@ -80,10 +81,13 @@ export default async function Menu({
     ? groupByCategory(products, user.categories ?? [])
     : [{ category: null, products }];
   const heroColor = colorFor(user.business_name || slug);
+  const ordersEnabled = Boolean(user.whatsapp) && products.length > 0;
 
-  return (
+  const menu = (
     <main className="min-h-screen bg-[#fff8f0] relative overflow-x-hidden">
-      <div className="relative mx-auto max-w-3xl px-4 py-12 sm:py-16">
+      <div
+        className={`relative mx-auto max-w-3xl px-4 py-12 sm:py-16 ${ordersEnabled ? "pb-32 sm:pb-32" : ""}`}
+      >
         <header className="relative text-center mb-10">
           <div
             aria-hidden
@@ -103,7 +107,9 @@ export default async function Menu({
             {user.business_name || "Nuestro menú"}
           </h1>
           <p className="mt-3 text-sm text-ink-soft">
-            Descubrí todo lo que tenemos para vos
+            {ordersEnabled
+              ? "Elegí lo que quieras y mandanos el pedido por WhatsApp"
+              : "Descubrí todo lo que tenemos para vos"}
           </p>
         </header>
 
@@ -175,14 +181,26 @@ export default async function Menu({
                                 {product.description}
                               </p>
                             )}
-                            {product.price !== null && (
-                              <div className="mt-auto pt-2">
-                                <span
-                                  className="inline-block rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums"
-                                  style={{ backgroundColor: pc.soft, color: pc.text }}
-                                >
-                                  {formatPrice(product.price)}
-                                </span>
+                            {(product.price !== null || ordersEnabled) && (
+                              <div className="mt-auto w-full pt-2">
+                                {product.price !== null && (
+                                  <span
+                                    className="inline-block rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums"
+                                    style={{ backgroundColor: pc.soft, color: pc.text }}
+                                  >
+                                    {formatPrice(product.price)}
+                                  </span>
+                                )}
+                                {ordersEnabled && (
+                                  <AddToCartButton
+                                    product={{
+                                      id: product.id,
+                                      name: product.name,
+                                      price: product.price === null ? null : Number(product.price),
+                                    }}
+                                    color={pc.text}
+                                  />
+                                )}
                               </div>
                             )}
                           </div>
@@ -202,6 +220,11 @@ export default async function Menu({
           </span>
         </footer>
       </div>
+      {ordersEnabled && (
+        <CartBar whatsapp={user.whatsapp!} businessName={user.business_name || "el negocio"} />
+      )}
     </main>
   );
+
+  return ordersEnabled ? <CartProvider slug={slug}>{menu}</CartProvider> : menu;
 }

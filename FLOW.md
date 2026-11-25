@@ -17,6 +17,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - Cada negocio elige un nombre → se genera un slug único para su URL pública (`/menu/<slug>`).
 - El catálogo guarda: **imagen + nombre + descripción + precio + categoría** (editables y borrables desde el dashboard). Stock/cantidad → etapa futura.
 - Recuperar contraseña por mail (Gmail SMTP) y cambiar nombre del negocio/slug desde `/settings`.
+- **Pedidos por WhatsApp**: si el negocio carga su número en `/settings`, el menú público muestra "+ Agregar" en cada producto y un carrito que arma el mensaje y abre `wa.me`.
 
 ## Flujo de usuario
 
@@ -29,8 +30,9 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 5. **Compartir**: "Generar QR" muestra un QR apuntando a `/menu/<slug>` — la vista pública de solo lectura, sin ningún botón de edición.
 6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada. Está cacheado (ISR) y se invalida al instante cuando el dueño cambia algo. Si el slug es viejo, redirige al nuevo.
 7. **Actualizar precios (dashboard)**: sube o baja por % todos los precios o los de una categoría, con redondeo opcional ($10/$50/$100) y vista previa. `POST /api/products/bulk-price`; la vista previa usa `adjustPrice` (`lib/format.ts`), que replica el cálculo de `bulkUpdatePrices` en SQL.
-8. **Ajustes (`/settings`, protegido)**: cambiar nombre del negocio y slug. El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
-9. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
+8. **Ajustes (`/settings`, protegido)**: cambiar nombre del negocio, slug y WhatsApp para pedidos (opcional; `lib/whatsapp.ts` lo normaliza a formato internacional, agregando `549` si se escribe un número argentino local, sacando 0 y 15). El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
+9. **Pedido por WhatsApp (`/menu/<slug>`)**: solo si el negocio tiene `users.whatsapp`. El cliente suma productos (`components/menu/Cart.tsx`), ve el total en una barra fija abajo, abre "Tu pedido", puede poner nombre y nota, y "Enviar pedido por WhatsApp" abre `wa.me/<número>?text=…` con el detalle. No se guarda nada en el servidor: el carrito vive en `sessionStorage` del cliente (por slug) y el precio del mensaje es el que ve el cliente — el dueño confirma por WhatsApp. Los productos sin precio se pueden pedir igual ("a consultar").
+10. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
 
 ## Decisiones técnicas
 
@@ -75,6 +77,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - `app/forgot-password/`, `app/reset-password/` + `app/api/password-reset/{request,confirm}` — recuperar contraseña.
 - `lib/image.ts` — achica/comprime fotos en el navegador antes de subirlas.
 - `lib/menuCache.ts` — invalida la caché del menú público.
+- `lib/whatsapp.ts` — normaliza el número y arma el mensaje/link del pedido. `components/menu/Cart.tsx` — carrito del menú público (`useSyncExternalStore` sobre `sessionStorage`).
 - `lib/mail.ts`, `lib/appUrl.ts`, `lib/resetToken.ts` — envío de mails, URL pública para links y tokens de reseteo.
 - `lib/db.ts` — todas las queries a Neon (usuarios y productos).
 - `lib/slug.ts` — genera el slug a partir del nombre del negocio.

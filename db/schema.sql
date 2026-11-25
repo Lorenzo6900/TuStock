@@ -82,3 +82,7 @@ create table if not exists slug_redirects (
   user_id uuid not null references users(id) on delete cascade,
   created_at timestamptz not null default now()
 );
+
+-- Pedidos por WhatsApp: número del negocio en formato internacional, solo dígitos
+-- (ej. 5491123456789). Si es null, el menú no muestra el carrito.
+alter table users add column if not exists whatsapp text;

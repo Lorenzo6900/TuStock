@@ -7,16 +7,19 @@ import { slugify } from "@/lib/slug";
 export default function SettingsForm({
   businessName: initialName,
   slug: initialSlug,
+  whatsapp: initialWhatsapp,
   origin,
 }: {
   businessName: string;
   slug: string;
+  whatsapp: string;
   origin: string;
 }) {
   const router = useRouter();
   const [businessName, setBusinessName] = useState(initialName);
   const [slug, setSlug] = useState(initialSlug);
   const [savedSlug, setSavedSlug] = useState(initialSlug);
+  const [whatsapp, setWhatsapp] = useState(initialWhatsapp ? `+${initialWhatsapp}` : "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -33,7 +36,7 @@ export default function SettingsForm({
     const res = await fetch("/api/business", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessName, slug: normalizedSlug }),
+      body: JSON.stringify({ businessName, slug: normalizedSlug, whatsapp }),
     });
     const json = await res.json().catch(() => ({}));
     setLoading(false);
@@ -45,6 +48,7 @@ export default function SettingsForm({
     setBusinessName(json.businessName);
     setSlug(json.slug);
     setSavedSlug(json.slug);
+    setWhatsapp(json.whatsapp ? `+${json.whatsapp}` : "");
     setSuccess(true);
     router.refresh();
   }
@@ -94,6 +98,25 @@ export default function SettingsForm({
             Los QR que ya imprimiste siguen funcionando: el link viejo redirige al nuevo.
           </p>
         )}
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-ink">
+          WhatsApp para pedidos <span className="font-normal text-ink-soft">(opcional)</span>
+        </label>
+        <input
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="11 2345 6789"
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+          className={inputClass}
+        />
+        <p className="mt-1.5 text-xs text-ink-soft">
+          Si lo completás, tus clientes pueden armar un pedido en el menú y mandártelo por
+          WhatsApp. Si no sos de Argentina, escribilo con el código de país (ej: +598 …).
+        </p>
       </div>
 
       <button
