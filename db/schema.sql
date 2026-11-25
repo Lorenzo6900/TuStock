@@ -86,3 +86,22 @@ create table if not exists slug_redirects (
 -- Pedidos por WhatsApp: número del negocio en formato internacional, solo dígitos
 -- (ej. 5491123456789). Si es null, el menú no muestra el carrito.
 alter table users add column if not exists whatsapp text;
+
+-- Personalización del menú. Todos opcionales: null = no se muestra.
+-- brand_color: '#rrggbb'. hours: { "0".."6" (0 = domingo): [["12:00","15:00"], ...] },
+-- un cierre <= apertura significa que pasa la medianoche. timezone: IANA (ej.
+-- America/Argentina/Buenos_Aires), para calcular "Abierto ahora".
+alter table users add column if not exists brand_color text;
+alter table users add column if not exists address text;
+alter table users add column if not exists instagram text;
+alter table users add column if not exists hours jsonb;
+alter table users add column if not exists timezone text;
+-- Cuándo cambió el logo (null = sin logo); se usa para invalidar la caché de la imagen.
+alter table users add column if not exists logo_updated_at timestamptz;
+
+-- El logo va aparte para que los `select * from users` no traigan los bytes.
+create table if not exists business_logos (
+  user_id uuid primary key references users(id) on delete cascade,
+  image bytea not null,
+  mime_type text not null
+);

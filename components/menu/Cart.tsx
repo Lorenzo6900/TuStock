@@ -178,7 +178,7 @@ export function AddToCartButton({ product, color }: { product: CartProduct; colo
   );
 }
 
-function WhatsappIcon({ className }: { className?: string }) {
+export function WhatsappIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
       <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.44 1.32-2 1.37-.51.05-1 .24-3.37-.7-2.84-1.12-4.65-4.03-4.79-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17.01.4-.06.62.48.23.55.78 1.9.85 2.04.07.14.11.3.02.49-.09.19-.14.3-.28.46-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.6-.07.16-.19.69-.81.88-1.09.18-.28.37-.23.62-.14.25.09 1.6.76 1.88.9.28.14.46.21.53.32.07.12.07.67-.18 1.36Z" />
@@ -186,7 +186,15 @@ function WhatsappIcon({ className }: { className?: string }) {
   );
 }
 
-export function CartBar({ whatsapp, businessName }: { whatsapp: string; businessName: string }) {
+export function CartBar({
+  whatsapp,
+  businessName,
+  color = "var(--color-ink)",
+}: {
+  whatsapp: string;
+  businessName: string;
+  color?: string;
+}) {
   const { lines, setQuantity, clear } = useCart();
   const [sheetOpen, setOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -234,7 +242,8 @@ export function CartBar({ whatsapp, businessName }: { whatsapp: string; business
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="pointer-events-auto mx-auto flex w-full max-w-md items-center gap-3 rounded-full bg-ink px-5 py-3.5 text-paper shadow-xl shadow-black/20 transition-transform active:scale-[0.98]"
+          className="pointer-events-auto mx-auto flex w-full max-w-md items-center gap-3 rounded-full px-5 py-3.5 text-white shadow-xl shadow-black/20 transition-transform active:scale-[0.98]"
+          style={{ backgroundColor: color }}
         >
           <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/15 px-2 text-sm font-bold tabular-nums">
             {count}

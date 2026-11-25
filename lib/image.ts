@@ -62,3 +62,27 @@ export async function compressBase64Image(data: string, mimeType: string): Promi
   const blob = await fetch(`data:${mimeType};base64,${data}`).then((r) => r.blob());
   return compressImage(blob);
 }
+
+// Logo del negocio: 400px alcanza (se muestra chico). Si el archivo puede tener
+// transparencia (PNG/WebP/GIF) se guarda como PNG para no perderla; si es una
+// foto, como JPEG. Devuelve también una data URL para la vista previa.
+export async function compressLogo(file: Blob): Promise<EncodedImage & { dataUrl: string }> {
+  const keepAlpha = /image\/(png|webp|gif)/.test(file.type);
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const scale = Math.min(1, 400 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas no disponible");
+  if (!keepAlpha) {
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const mimeType = keepAlpha ? "image/png" : "image/jpeg";
+  const dataUrl = canvas.toDataURL(mimeType, JPEG_QUALITY);
+  return { data: dataUrl.split(",")[1], mimeType, dataUrl };
+}

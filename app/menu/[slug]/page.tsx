@@ -1,5 +1,15 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
-import { getSlugRedirect, getUserBySlug, listProducts, type Product } from "@/lib/db";
+import {
+  businessLogoUrl,
+  getSlugRedirect,
+  getUserBySlug,
+  listProducts,
+  type Product,
+} from "@/lib/db";
+import { brandColors, type BrandColors } from "@/lib/brand";
+import BusinessInfo from "@/components/menu/BusinessInfo";
 import { formatPrice } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
 import { AddToCartButton, CartBar, CartProvider } from "@/components/menu/Cart";
@@ -15,6 +25,9 @@ export function generateStaticParams() {
 
 const UNCATEGORIZED = "Otros";
 
+// La página y generateMetadata buscan el mismo negocio: una sola consulta.
+const getBusiness = cache(getUserBySlug);
+
 const PALETTE = [
   { text: "#b91c5c", soft: "#fde4ef", ring: "#f8b4d9", grad: "#fb7185" },
   { text: "#0f766e", soft: "#dcfaf4", ring: "#99f0e2", grad: "#2dd4bf" },
@@ -26,7 +39,7 @@ const PALETTE = [
   { text: "#0369a1", soft: "#dff3ff", ring: "#a8dcff", grad: "#38bdf8" },
 ];
 
-function colorFor(key: string) {
+function colorFor(key: string): BrandColors {
   let hash = 0;
   for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
   return PALETTE[hash % PALETTE.length];
@@ -60,13 +73,31 @@ function groupByCategory(products: Product[], preferredOrder: string[]) {
   return orderedKeys.map((key) => ({ category: key, products: grouped.get(key)! }));
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const user = await getBusiness(slug);
+  if (!user) return {};
+  const title = user.business_name || "Menú";
+  const logo = businessLogoUrl(user);
+  return {
+    title: `${title} · Menú`,
+    description: `Mirá el menú de ${title}.`,
+    icons: logo ? { icon: logo, apple: logo } : undefined,
+    openGraph: { title, description: `Mirá el menú de ${title}.`, images: logo ? [logo] : undefined },
+  };
+}
+
 export default async function Menu({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const user = await getUserBySlug(slug);
+  const user = await getBusiness(slug);
 
   if (!user) {
     // Slug viejo de un negocio que se renombró: los QR impresos siguen andando.
@@ -80,7 +111,11 @@ export default async function Menu({
   const sections = hasCategories
     ? groupByCategory(products, user.categories ?? [])
     : [{ category: null, products }];
-  const heroColor = colorFor(user.business_name || slug);
+  // Con color de marca, todo el menú va en ese color; sin él, uno por categoría.
+  const brand = user.brand_color ? brandColors(user.brand_color) : null;
+  const colorOf = (key: string) => brand ?? colorFor(key);
+  const heroColor = colorOf(user.business_name || slug);
+  const logoUrl = businessLogoUrl(user);
   const ordersEnabled = Boolean(user.whatsapp) && products.length > 0;
 
   const menu = (
@@ -94,12 +129,21 @@ export default async function Menu({
             className="pointer-events-none absolute left-1/2 top-0 -z-10 h-56 w-56 sm:h-72 sm:w-72 -translate-x-1/2 -translate-y-1/4 rounded-full blur-3xl opacity-25"
             style={{ backgroundColor: heroColor.grad }}
           />
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm ring-1 ring-black/5"
-            style={{ color: heroColor.text }}
-          >
-            ✨ Catálogo
-          </span>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={`Logo de ${user.business_name ?? "el negocio"}`}
+              className="mx-auto h-24 w-24 sm:h-28 sm:w-28 rounded-full bg-white object-cover shadow-lg shadow-black/10 ring-4 ring-white"
+            />
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm ring-1 ring-black/5"
+              style={{ color: heroColor.text }}
+            >
+              ✨ Catálogo
+            </span>
+          )}
           <h1
             className="mt-5 pb-1 font-serif text-4xl sm:text-5xl font-bold tracking-tight leading-[1.25] bg-clip-text text-transparent"
             style={{ backgroundImage: `linear-gradient(90deg, ${heroColor.text}, ${heroColor.grad})` }}
@@ -111,6 +155,14 @@ export default async function Menu({
               ? "Elegí lo que quieras y mandanos el pedido por WhatsApp"
               : "Descubrí todo lo que tenemos para vos"}
           </p>
+          <BusinessInfo
+            address={user.address}
+            instagram={user.instagram}
+            whatsapp={user.whatsapp}
+            hours={user.hours}
+            timezone={user.timezone}
+            accent={heroColor.text}
+          />
         </header>
 
         {products.length === 0 ? (
@@ -123,7 +175,7 @@ export default async function Menu({
               <nav className="mb-10 flex flex-wrap justify-center gap-2">
                 {sections.map(({ category }) => {
                   const key = category ?? "all";
-                  const c = colorFor(key);
+                  const c = colorOf(key);
                   return (
                     <a
                       key={key}
@@ -141,7 +193,7 @@ export default async function Menu({
             <div className="flex flex-col gap-14">
               {sections.map((section) => {
                 const key = section.category ?? "all";
-                const c = colorFor(key);
+                const c = colorOf(key);
                 return (
                   <section key={key} id={slugify(key)} className="scroll-mt-6">
                     {section.category && (
@@ -161,7 +213,7 @@ export default async function Menu({
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
                       {section.products.map((product) => {
-                        const pc = colorFor(section.category ?? product.name);
+                        const pc = colorOf(section.category ?? product.name);
                         return (
                           <div
                             key={product.id}
@@ -221,7 +273,11 @@ export default async function Menu({
         </footer>
       </div>
       {ordersEnabled && (
-        <CartBar whatsapp={user.whatsapp!} businessName={user.business_name || "el negocio"} />
+        <CartBar
+          whatsapp={user.whatsapp!}
+          businessName={user.business_name || "el negocio"}
+          color={brand?.text}
+        />
       )}
     </main>
   );

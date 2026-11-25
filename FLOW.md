@@ -18,6 +18,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - El catálogo guarda: **imagen + nombre + descripción + precio + categoría** (editables y borrables desde el dashboard). Stock/cantidad → etapa futura.
 - Recuperar contraseña por mail (Gmail SMTP) y cambiar nombre del negocio/slug desde `/settings`.
 - **Pedidos por WhatsApp**: si el negocio carga su número en `/settings`, el menú público muestra "+ Agregar" en cada producto y un carrito que arma el mensaje y abre `wa.me`.
+- **Menú personalizado**: logo, color de marca, dirección, Instagram y horarios (con "Abierto ahora"), todo desde `/settings`.
 
 ## Flujo de usuario
 
@@ -30,9 +31,10 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 5. **Compartir**: "Generar QR" muestra un QR apuntando a `/menu/<slug>` — la vista pública de solo lectura, sin ningún botón de edición.
 6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada. Está cacheado (ISR) y se invalida al instante cuando el dueño cambia algo. Si el slug es viejo, redirige al nuevo.
 7. **Actualizar precios (dashboard)**: sube o baja por % todos los precios o los de una categoría, con redondeo opcional ($10/$50/$100) y vista previa. `POST /api/products/bulk-price`; la vista previa usa `adjustPrice` (`lib/format.ts`), que replica el cálculo de `bulkUpdatePrices` en SQL.
-8. **Ajustes (`/settings`, protegido)**: cambiar nombre del negocio, slug y WhatsApp para pedidos (opcional; `lib/whatsapp.ts` lo normaliza a formato internacional, agregando `549` si se escribe un número argentino local, sacando 0 y 15). El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
+8. **Ajustes (`/settings`, protegido)**: en secciones — *Tu negocio* (logo, nombre, slug, color), *Contacto* (WhatsApp, Instagram, dirección) y *Horarios*. El logo se sube apenas se elige (`PUT/DELETE /api/business/logo`, achicado a 400px en el navegador con `compressLogo`, PNG si puede tener transparencia); el resto se guarda con "Guardar cambios" (`PATCH /api/business`). Color: paleta de `BRAND_PRESETS`, un sugerido sacado del logo (`suggestColorFromImage`, en el navegador) o uno libre; si no hay color, el menú sigue con un color por categoría. WhatsApp para pedidos (opcional; `lib/whatsapp.ts` lo normaliza a formato internacional, agregando `549` si se escribe un número argentino local, sacando 0 y 15). El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
 9. **Pedido por WhatsApp (`/menu/<slug>`)**: solo si el negocio tiene `users.whatsapp`. El cliente suma productos (`components/menu/Cart.tsx`), ve el total en una barra fija abajo, abre "Tu pedido", puede poner nombre y nota, y "Enviar pedido por WhatsApp" abre `wa.me/<número>?text=…` con el detalle. No se guarda nada en el servidor: el carrito vive en `sessionStorage` del cliente (por slug) y el precio del mensaje es el que ve el cliente — el dueño confirma por WhatsApp. Los productos sin precio se pueden pedir igual ("a consultar").
-10. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
+10. **Menú personalizado (`/menu/<slug>`)**: con color de marca, todo el menú usa ese color (`brandColors` en `lib/brand.ts` lo oscurece si hace falta para que el texto se lea). Logo en círculo arriba (reemplaza el "✨ Catálogo") y también como ícono de la pestaña/preview al compartir (`generateMetadata`). Debajo del nombre, `components/menu/BusinessInfo.tsx`: estado de horarios (desplegable con la semana) y chips de dirección → Google Maps, Instagram y WhatsApp. "Abierto ahora" se calcula en el navegador (`OpenStatus.tsx`, la página está cacheada) con la zona horaria del negocio, que se toma del navegador del dueño al guardar. Los pedidos se pueden mandar igual con el local cerrado.
+11. **Recuperar contraseña**: `/login` → "¿Te la olvidaste?" → `/forgot-password` → mail con link a `/reset-password?token=…` (vence en 1 hora, se usa una sola vez; en la base se guarda solo el hash del token).
 
 ## Decisiones técnicas
 
@@ -77,6 +79,8 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - `app/forgot-password/`, `app/reset-password/` + `app/api/password-reset/{request,confirm}` — recuperar contraseña.
 - `lib/image.ts` — achica/comprime fotos en el navegador antes de subirlas.
 - `lib/menuCache.ts` — invalida la caché del menú público.
+- `lib/brand.ts` — paleta, colores derivados con buen contraste y color sugerido desde el logo. `lib/hours.ts` — validación de horarios y cálculo de abierto/cerrado (turnos que pasan la medianoche incluidos).
+- `app/api/logo/[userId]` — sirve el logo (público, URL versionada con `?v=` → caché inmutable). El logo vive en la tabla `business_logos` (aparte de `users`, para que los `select *` no traigan los bytes); `users.logo_updated_at` indica si hay logo.
 - `lib/whatsapp.ts` — normaliza el número y arma el mensaje/link del pedido. `components/menu/Cart.tsx` — carrito del menú público (`useSyncExternalStore` sobre `sessionStorage`).
 - `lib/mail.ts`, `lib/appUrl.ts`, `lib/resetToken.ts` — envío de mails, URL pública para links y tokens de reseteo.
 - `lib/db.ts` — todas las queries a Neon (usuarios y productos).

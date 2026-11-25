@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getUserById } from "@/lib/db";
+import { businessLogoUrl, getUserById } from "@/lib/db";
 import { appUrl } from "@/lib/appUrl";
 import AppHeader from "@/components/AppHeader";
 import BackLink from "@/components/BackLink";
@@ -24,12 +24,19 @@ export default async function Settings() {
           Ajustes del negocio
         </h1>
         <p className="mt-1 mb-6 text-sm text-ink-soft">
-          Así aparece tu negocio en el menú que ven tus clientes.
+          Así se ve tu negocio en el menú que abren tus clientes con el QR.
         </p>
         <SettingsForm
-          businessName={user.business_name ?? ""}
-          slug={user.slug}
-          whatsapp={user.whatsapp ?? ""}
+          initial={{
+            businessName: user.business_name ?? "",
+            slug: user.slug,
+            whatsapp: user.whatsapp,
+            brandColor: user.brand_color,
+            address: user.address,
+            instagram: user.instagram,
+            hours: user.hours,
+            logoUrl: businessLogoUrl(user),
+          }}
           origin={appUrl()}
         />
       </div>

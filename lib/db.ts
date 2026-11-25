@@ -1,4 +1,5 @@
 import { Pool } from "@neondatabase/serverless";
+import type { WeeklyHours } from "@/lib/hours";
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -23,6 +24,24 @@ export type User = {
   categories: string[] | null;
   slug: string | null;
   whatsapp: string | null;
+  brand_color: string | null;
+  address: string | null;
+  instagram: string | null;
+  hours: WeeklyHours | null;
+  timezone: string | null;
+  logo_updated_at: Date | null;
+};
+
+// Lo que el dueño edita en /settings (además del logo, que va por separado).
+export type BusinessProfile = {
+  businessName: string;
+  slug: string;
+  whatsapp: string | null;
+  brandColor: string | null;
+  address: string | null;
+  instagram: string | null;
+  hours: WeeklyHours | null;
+  timezone: string | null;
 };
 
 export async function listProducts(userId: string): Promise<Product[]> {
@@ -151,10 +170,9 @@ export async function getSlugRedirect(oldSlug: string): Promise<string | null> {
 // Cambia nombre y slug del negocio; el slug anterior queda como redirección.
 export async function updateBusinessProfile(
   userId: string,
-  businessName: string,
-  newSlug: string,
-  whatsapp: string | null
+  profile: BusinessProfile
 ): Promise<{ user: User; oldSlug: string | null }> {
+  const newSlug = profile.slug;
   const client = await pool.connect();
   try {
     await client.query("begin");
@@ -178,8 +196,22 @@ export async function updateBusinessProfile(
     );
 
     const { rows } = await client.query(
-      "update users set business_name = $2, slug = $3, whatsapp = $4 where id = $1 returning *",
-      [userId, businessName, newSlug, whatsapp]
+      `update users
+       set business_name = $2, slug = $3, whatsapp = $4, brand_color = $5, address = $6,
+           instagram = $7, hours = $8, timezone = $9
+       where id = $1
+       returning *`,
+      [
+        userId,
+        profile.businessName,
+        newSlug,
+        profile.whatsapp,
+        profile.brandColor,
+        profile.address,
+        profile.instagram,
+        profile.hours === null ? null : JSON.stringify(profile.hours),
+        profile.timezone,
+      ]
     );
     await client.query("commit");
     return { user: rows[0], oldSlug };
@@ -265,4 +297,50 @@ export async function setUserBusinessInfo(
     [userId, businessName, slug, businessType, categories]
   );
   return rows[0];
+}
+
+export async function setBusinessLogo(userId: string, image: Buffer, mimeType: string): Promise<Date> {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    await client.query(
+      `insert into business_logos (user_id, image, mime_type) values ($1, $2, $3)
+       on conflict (user_id) do update set image = excluded.image, mime_type = excluded.mime_type`,
+      [userId, image, mimeType]
+    );
+    const { rows } = await client.query(
+      "update users set logo_updated_at = now() where id = $1 returning logo_updated_at",
+      [userId]
+    );
+    await client.query("commit");
+    return rows[0].logo_updated_at;
+  } catch (err) {
+    await client.query("rollback");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteBusinessLogo(userId: string): Promise<void> {
+  await pool.query("delete from business_logos where user_id = $1", [userId]);
+  await pool.query("update users set logo_updated_at = null where id = $1", [userId]);
+}
+
+export async function getBusinessLogo(
+  userId: string
+): Promise<{ image: Buffer; mimeType: string } | null> {
+  const { rows } = await pool.query(
+    "select image, mime_type from business_logos where user_id = $1",
+    [userId]
+  );
+  if (rows.length === 0) return null;
+  return { image: rows[0].image, mimeType: rows[0].mime_type };
+}
+
+// URL pública del logo; la versión cambia cada vez que se sube uno nuevo, así se
+// puede cachear para siempre.
+export function businessLogoUrl(user: Pick<User, "id" | "logo_updated_at">): string | null {
+  if (!user.logo_updated_at) return null;
+  return `/api/logo/${user.id}?v=${new Date(user.logo_updated_at).getTime()}`;
 }
