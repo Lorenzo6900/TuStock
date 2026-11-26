@@ -15,7 +15,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - **Multi-tenant real**: cada usuario tiene su cuenta y su propio catálogo (aislado por `user_id`).
 - Login con Google o con email/contraseña.
 - Cada negocio elige un nombre → se genera un slug único para su URL pública (`/menu/<slug>`).
-- El catálogo guarda: **imagen + nombre + descripción + precio + categoría** (editables y borrables desde el dashboard). Stock/cantidad → etapa futura.
+- El catálogo guarda: **imagen + nombre + descripción + precio + categoría + disponible/agotado** (editables y borrables desde el dashboard). Sin cantidades: se decidió solo un interruptor.
 - Recuperar contraseña por mail (Gmail SMTP) y cambiar nombre del negocio/slug desde `/settings`.
 - **Pedidos por WhatsApp**: si el negocio carga su número en `/settings`, el menú público muestra "+ Agregar" en cada producto y un carrito que arma el mensaje y abre `wa.me`.
 - **Menú personalizado**: logo, color de marca, dirección, Instagram y horarios (con "Abierto ahora"), todo desde `/settings`.
@@ -26,10 +26,10 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 2. **Signup (`/signup`)**: con Google, o con nombre + nombre del negocio + email + contraseña.
    - Con Google: como Google no da el nombre del negocio, se pide en un paso extra (`/onboarding`) la primera vez.
    - Con email: se pide todo junto y se genera el slug ahí mismo.
-3. **Dashboard (`/dashboard`, protegido)**: catálogo del dueño — grilla de productos, botón "Generar QR" y "+ Agregar producto".
+3. **Dashboard (`/dashboard`, protegido)**: catálogo del dueño — grilla de productos, botón "Generar QR" y "+ Agregar producto". Cada tarjeta tiene un interruptor **Disponible / Agotado** (`PATCH /api/products/[id]/availability`, columna `products.available`) que cambia al toque y vuelve atrás si falla el guardado; arriba se ve cuántos hay agotados.
 4. **Agregar producto (`/add`, protegido)**: sacar/subir foto → se achica en el celular a 1280px JPEG (`lib/image.ts`) → en paralelo Gemini (a) sugiere nombre, descripción corta y categoría (elegida de las del negocio, con `responseSchema` + `enum`) y (b) le quita el fondo y lo deja blanco → pantalla de revisión (editable) → guardar. Si falla lo del fondo, se guarda la foto original tal cual para no bloquear el flujo. Solo se guarda la imagen final (no el original), para no gastar espacio de más.
 5. **Compartir**: "Generar QR" muestra un QR apuntando a `/menu/<slug>` — la vista pública de solo lectura, sin ningún botón de edición.
-6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada. Está cacheado (ISR) y se invalida al instante cuando el dueño cambia algo. Si el slug es viejo, redirige al nuevo.
+6. **Menú público (`/menu/<slug>`)**: cualquiera que escanee el QR ve el catálogo de ese negocio (nombre del negocio + productos), sin poder tocar nada. Los agotados se ven en gris con la etiqueta "Agotado", sin botón de pedir, al final de su categoría; si un producto del carrito guardado se agota, deja de contar en el pedido. Está cacheado (ISR) y se invalida al instante cuando el dueño cambia algo. Si el slug es viejo, redirige al nuevo.
 7. **Actualizar precios (dashboard)**: sube o baja por % todos los precios o los de una categoría, con redondeo opcional ($10/$50/$100) y vista previa. `POST /api/products/bulk-price`; la vista previa usa `adjustPrice` (`lib/format.ts`), que replica el cálculo de `bulkUpdatePrices` en SQL.
 8. **Ajustes (`/settings`, protegido)**: en secciones — *Tu negocio* (logo, nombre, slug, color), *Contacto* (WhatsApp, Instagram, dirección) y *Horarios*. El logo se sube apenas se elige (`PUT/DELETE /api/business/logo`, achicado a 400px en el navegador con `compressLogo`, PNG si puede tener transparencia); el resto se guarda con "Guardar cambios" (`PATCH /api/business`). Color: paleta de `BRAND_PRESETS`, un sugerido sacado del logo (`suggestColorFromImage`, en el navegador) o uno libre; si no hay color, el menú sigue con un color por categoría. WhatsApp para pedidos (opcional; `lib/whatsapp.ts` lo normaliza a formato internacional, agregando `549` si se escribe un número argentino local, sacando 0 y 15). El slug viejo queda en `slug_redirects`, así los QR ya impresos siguen andando, y nadie más puede tomarlo.
 9. **Pedido por WhatsApp (`/menu/<slug>`)**: solo si el negocio tiene `users.whatsapp`. El cliente suma productos (`components/menu/Cart.tsx`), ve el total en una barra fija abajo, abre "Tu pedido", puede poner nombre y nota, y "Enviar pedido por WhatsApp" abre `wa.me/<número>?text=…` con el detalle. No se guarda nada en el servidor: el carrito vive en `sessionStorage` del cliente (por slug) y el precio del mensaje es el que ve el cliente — el dueño confirma por WhatsApp. Los productos sin precio se pueden pedir igual ("a consultar").
@@ -114,7 +114,7 @@ Cada negocio tiene su propia cuenta y su propio catálogo público (para compart
 - **`models/gemini-2.5-flash is no longer available to new users`**: al crear una API key en una cuenta de Google que nunca usó Gemini API, algunos modelos (como `gemini-2.5-flash`) no están habilitados para "usuarios nuevos" — hay que usar el modelo que sugiere el propio error (en este caso `gemini-3.6-flash`). El modelo de imagen (`gemini-2.5-flash-image`) sí funcionó igual con la cuenta nueva.
 
 ## Pendiente (próxima etapa)
-- Stock/cantidad, búsqueda/filtros.
+- Búsqueda/filtros.
 - Límite de uso diario en `/api/process-image` (quitar el fondo cuesta plata).
 - Mover las imágenes de `bytea` en Neon a un storage de archivos (Vercel Blob / R2) antes de llenar la capa gratis.
 - Al resetear la contraseña, las sesiones abiertas (JWT) siguen valiendo hasta que vencen.

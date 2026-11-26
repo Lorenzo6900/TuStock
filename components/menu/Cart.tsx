@@ -71,13 +71,28 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function CartProvider({ slug, children }: { slug: string; children: React.ReactNode }) {
+export function CartProvider({
+  slug,
+  orderableIds,
+  children,
+}: {
+  slug: string;
+  orderableIds: string[];
+  children: React.ReactNode;
+}) {
   const key = storageKey(slug);
-  const lines = useSyncExternalStore(
+  const storedLines = useSyncExternalStore(
     subscribe,
     () => readLines(key),
     () => EMPTY
   );
+  // Si algo del pedido guardado se agotó o se borró desde que lo agregó, no cuenta.
+  const orderableKey = orderableIds.join(",");
+  const lines = useMemo(() => {
+    const orderable = new Set(orderableKey.split(","));
+    const kept = storedLines.filter((l) => orderable.has(l.id));
+    return kept.length === storedLines.length ? storedLines : kept;
+  }, [storedLines, orderableKey]);
 
   const value = useMemo<CartContextValue>(
     () => ({

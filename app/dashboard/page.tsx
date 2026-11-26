@@ -18,6 +18,7 @@ export default async function Dashboard() {
 
   const products = await listProducts(user.id);
   const categories = user.categories ?? [];
+  const soldOut = products.filter((p) => !p.available).length;
 
   return (
     <main className="min-h-screen bg-paper">
@@ -34,6 +35,12 @@ export default async function Dashboard() {
             </h1>
             <p className="mt-1 text-sm text-ink-soft tabular-nums">
               {products.length} {products.length === 1 ? "producto" : "productos"}
+              {soldOut > 0 && (
+                <span>
+                  {" · "}
+                  {soldOut} {soldOut === 1 ? "agotado" : "agotados"}
+                </span>
+              )}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:shrink-0 lg:justify-end">

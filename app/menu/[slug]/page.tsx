@@ -106,7 +106,13 @@ export default async function Menu({
     notFound();
   }
 
-  const products = await listProducts(user.id);
+  // Los agotados van al final (y como el agrupado mantiene el orden, quedan al
+  // final de su categoría).
+  const allProducts = await listProducts(user.id);
+  const products = [
+    ...allProducts.filter((p) => p.available),
+    ...allProducts.filter((p) => !p.available),
+  ];
   const hasCategories = products.some((p) => p.category?.trim());
   const sections = hasCategories
     ? groupByCategory(products, user.categories ?? [])
@@ -116,7 +122,8 @@ export default async function Menu({
   const colorOf = (key: string) => brand ?? colorFor(key);
   const heroColor = colorOf(user.business_name || slug);
   const logoUrl = businessLogoUrl(user);
-  const ordersEnabled = Boolean(user.whatsapp) && products.length > 0;
+  const orderableIds = products.filter((p) => p.available).map((p) => p.id);
+  const ordersEnabled = Boolean(user.whatsapp) && orderableIds.length > 0;
 
   const menu = (
     <main className="min-h-screen bg-[#fff8f0] relative overflow-x-hidden">
@@ -214,26 +221,45 @@ export default async function Menu({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
                       {section.products.map((product) => {
                         const pc = colorOf(section.category ?? product.name);
+                        const soldOut = !product.available;
                         return (
                           <div
                             key={product.id}
-                            className="group flex flex-col items-center text-center rounded-3xl bg-white p-3 shadow-md shadow-black/[0.04] ring-1 ring-black/5 transition-all hover:-translate-y-1 hover:shadow-xl"
+                            className={`group flex flex-col items-center text-center rounded-3xl p-3 ring-1 ring-black/5 transition-all ${
+                              soldOut
+                                ? "bg-white/60"
+                                : "bg-white shadow-md shadow-black/[0.04] hover:-translate-y-1 hover:shadow-xl"
+                            }`}
                           >
                             <div
-                              className="w-full rounded-2xl p-0.5"
-                              style={{ background: `linear-gradient(135deg, ${pc.grad}55, transparent 60%)` }}
+                              className={`relative w-full rounded-2xl p-0.5 ${soldOut ? "grayscale opacity-50" : ""}`}
+                              style={
+                                soldOut
+                                  ? undefined
+                                  : { background: `linear-gradient(135deg, ${pc.grad}55, transparent 60%)` }
+                              }
                             >
                               <ProductImage productId={product.id} name={product.name} />
                             </div>
-                            <p className="mt-3 text-sm font-semibold text-ink leading-snug">
+                            <p
+                              className={`mt-3 text-sm font-semibold leading-snug ${soldOut ? "text-ink-soft" : "text-ink"}`}
+                            >
                               {product.name}
                             </p>
                             {product.description && (
-                              <p className="mt-1 text-xs text-ink-soft leading-relaxed line-clamp-3">
+                              <p
+                                className={`mt-1 text-xs text-ink-soft leading-relaxed line-clamp-3 ${soldOut ? "opacity-60" : ""}`}
+                              >
                                 {product.description}
                               </p>
                             )}
-                            {(product.price !== null || ordersEnabled) && (
+                            {soldOut ? (
+                              <div className="mt-auto pt-2">
+                                <span className="inline-block rounded-full bg-ink/80 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">
+                                  Agotado
+                                </span>
+                              </div>
+                            ) : (product.price !== null || ordersEnabled) && (
                               <div className="mt-auto w-full pt-2">
                                 {product.price !== null && (
                                   <span
@@ -282,5 +308,11 @@ export default async function Menu({
     </main>
   );
 
-  return ordersEnabled ? <CartProvider slug={slug}>{menu}</CartProvider> : menu;
+  return ordersEnabled ? (
+    <CartProvider slug={slug} orderableIds={orderableIds}>
+      {menu}
+    </CartProvider>
+  ) : (
+    menu
+  );
 }

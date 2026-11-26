@@ -21,6 +21,31 @@ export default function ProductCard({
   const [description, setDescription] = useState(product.description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [available, setAvailable] = useState(product.available);
+  const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState(false);
+
+  // Se cambia al toque en pantalla y, si el servidor falla, se vuelve atrás.
+  async function toggleAvailable() {
+    const next = !available;
+    setAvailable(next);
+    setToggling(true);
+    setToggleError(false);
+    try {
+      const res = await fetch(`/api/products/${product.id}/availability`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ available: next }),
+      });
+      if (!res.ok) throw new Error();
+      router.refresh();
+    } catch {
+      setAvailable(!next);
+      setToggleError(true);
+    } finally {
+      setToggling(false);
+    }
+  }
 
   function closeModal() {
     if (saving) return;
@@ -76,13 +101,18 @@ export default function ProductCard({
   return (
     <>
       <div className="group bg-white rounded-2xl border border-line overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all">
-        <div className="aspect-square bg-white flex items-center justify-center">
+        <div className="relative aspect-square bg-white flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/products/${product.id}/image`}
             alt={product.name}
-            className="w-full h-full object-contain"
+            className={`w-full h-full object-contain transition ${available ? "" : "grayscale opacity-40"}`}
           />
+          {!available && (
+            <span className="absolute left-2 top-2 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-paper shadow-sm">
+              Agotado
+            </span>
+          )}
         </div>
         <div className="p-3 border-t border-line">
           <p className="text-sm font-medium text-ink truncate">{product.name}</p>
@@ -96,7 +126,36 @@ export default function ProductCard({
               </span>
             )}
           </div>
-          <div className="mt-2.5 flex gap-1.5">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={available}
+            onClick={toggleAvailable}
+            disabled={toggling}
+            className="mt-2.5 flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-xs font-medium transition-colors hover:bg-paper-soft"
+          >
+            <span className={available ? "text-green-700" : "text-ink-soft"}>
+              {available ? "Disponible" : "Agotado"}
+            </span>
+            <span
+              aria-hidden
+              className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                available ? "bg-green-600" : "bg-line"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${
+                  available ? "left-[1.125rem]" : "left-0.5"
+                }`}
+              />
+            </span>
+          </button>
+          {toggleError && (
+            <p role="alert" className="mt-1 text-[11px] text-red-700">
+              No se pudo guardar. Probá de nuevo.
+            </p>
+          )}
+          <div className="mt-2 flex gap-1.5">
             <button
               type="button"
               onClick={() => setModal("edit")}

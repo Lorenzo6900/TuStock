@@ -9,6 +9,7 @@ export type Product = {
   price: number | null;
   category: string | null;
   description: string | null;
+  available: boolean;
   mime_type: string;
   created_at: string;
 };
@@ -46,7 +47,7 @@ export type BusinessProfile = {
 
 export async function listProducts(userId: string): Promise<Product[]> {
   const { rows } = await pool.query(
-    "select id, name, price, category, description, mime_type, created_at from products where user_id = $1 order by created_at desc",
+    "select id, name, price, category, description, available, mime_type, created_at from products where user_id = $1 order by created_at desc",
     [userId]
   );
   return rows;
@@ -64,7 +65,7 @@ export async function insertProduct(
   const { rows } = await pool.query(
     `insert into products (user_id, name, image, mime_type, price, category, description)
      values ($1, $2, $3, $4, $5, $6, $7)
-     returning id, name, price, category, description, mime_type, created_at`,
+     returning id, name, price, category, description, available, mime_type, created_at`,
     [userId, name, image, mimeType, price, category, description]
   );
   return rows[0];
@@ -82,7 +83,7 @@ export async function updateProduct(
     `update products
      set name = $3, price = $4, category = $5, description = $6
      where id = $1 and user_id = $2
-     returning id, name, price, category, description, mime_type, created_at`,
+     returning id, name, price, category, description, available, mime_type, created_at`,
     [id, userId, name, price, category, description]
   );
   return rows[0] ?? null;
@@ -104,6 +105,18 @@ export async function bulkUpdatePrices(
     [userId, percent, step, category]
   );
   return rowCount ?? 0;
+}
+
+export async function setProductAvailable(
+  id: string,
+  userId: string,
+  available: boolean
+): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    "update products set available = $3 where id = $1 and user_id = $2",
+    [id, userId, available]
+  );
+  return (rowCount ?? 0) > 0;
 }
 
 export async function deleteProduct(id: string, userId: string): Promise<boolean> {

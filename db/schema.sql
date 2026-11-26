@@ -105,3 +105,6 @@ create table if not exists business_logos (
   image bytea not null,
   mime_type text not null
 );
+
+-- Disponible / agotado (interruptor del dashboard). Los agotados se ven en gris en el menú.
+alter table products add column if not exists available boolean not null default true;
